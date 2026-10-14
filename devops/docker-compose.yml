@@ -1,0 +1,32 @@
+name: platform-studio
+
+services:
+  platform-studio:
+    build:
+      context: ..
+      dockerfile: devops/Dockerfile
+    image: platform-studio-app:latest
+    container_name: platform-studio
+    environment:
+      # The working clone lives on the named volume. Set STUDIO_PLATFORM_REPO_URL
+      # plus STUDIO_GITHUB_TOKEN (contents + pull requests, read/write on the
+      # platform repo) to run the PR-mode composition; without them the studio
+      # runs the operator-owned composition and expects a checkout at
+      # STUDIO_PLATFORM_ROOT. The fleet envs fall back to this token, so it
+      # also needs the fleet grants unless they are set separately.
+      STUDIO_PLATFORM_ROOT: /data/platform
+      # STUDIO_PLATFORM_REPO_URL: "https://github.com/<owner>/foundry-platform.git"
+      # STUDIO_GITHUB_TOKEN: "<pat>"
+      # HTTP Basic credentials. The studio fails closed without these. Change
+      # the password before exposing this instance beyond localhost, or set
+      # STUDIO_AUTH_DISABLED to "true" to run it unauthenticated locally.
+      STUDIO_AUTH_USER: "ops"
+      STUDIO_AUTH_PASSWORD: "change-me"
+    ports:
+      - "8000:8000"
+    volumes:
+      - platform-studio-data:/data
+    restart: unless-stopped
+
+volumes:
+  platform-studio-data:

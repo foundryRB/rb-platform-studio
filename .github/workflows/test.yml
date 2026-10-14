@@ -1,0 +1,78 @@
+# platform-studio tests: backend suite (including the MCP protocol tests and
+# the real-git PR-flow tests), frontend vitest, docs Starlight meta-tests, and
+# the cross-runtime intent audit. Separate from build.yml (conformance +
+# release): tests gate the code, the build ships artifacts. Runs on the
+# in-cluster ARC runners (runs-on: arc-dind), like build.yml, so no job consumes
+# GitHub-hosted minutes; when k3s is down they queue for a runner.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: arc-dind
+    defaults:
+      run:
+        working-directory: studio-backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip
+      # pytest-intent and csd-intent are git dependencies on the (public)
+      # csd-library monorepo.
+      - run: pip install -e ".[dev]"
+      - run: ruff check .
+      - run: python -m pytest -q
+
+  frontend:
+    runs-on: arc-dind
+    defaults:
+      run:
+        working-directory: studio-frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install and test
+        run: |
+          npm ci
+          npm run api:generate
+          npx tsc --noEmit
+          npm test
+
+  docs:
+    runs-on: arc-dind
+    defaults:
+      run:
+        working-directory: docs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Docs quality gates
+        run: |
+          npm ci
+          npm run lint:md
+          npm test
+          npm run build
+
+  intent-audit:
+    runs-on: arc-dind
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install csd-intent
+        run: |
+          python -m pip install --upgrade pip
+          pip install "csd-intent~=0.4.0"
+      - name: Audit intent claims (root + docs, cross-runtime)
+        run: csd-intent . --fail-on any

@@ -1,0 +1,151 @@
+images:
+  app:
+    repository: ghcr.io/vfpt-vodafone-foundry/platform-studio-app
+    tag: latest
+    pullPolicy: Always
+  docs:
+    repository: ghcr.io/vfpt-vodafone-foundry/platform-studio-docs
+    tag: latest
+    pullPolicy: Always
+
+# Pause switch: apps ship running. The platform scales the app to zero by
+# overriding this to true on the app's ArgoCD Application (docs stay up).
+paused: false
+
+# Materialized in-namespace by foundry-platform. Set to [] when the GHCR package
+# is public.
+imagePullSecrets:
+  - name: ghcr-pull
+
+# Per-install: this studio's public host (platform-studio.<zone>). NO default in
+# the shared chart; each install sets it in its prod values (anti-pattern 19).
+host: ""
+
+# Per-team Gateway created on the install branch (teams/platform-studio/gateway.yaml).
+gateway:
+  name: platform-studio
+  namespace: network
+
+# The /data volume holds the working clone of the platform repo. It is a
+# rebuildable cache: the real datastore is the install's deploy branch (onboarding
+# branches are pushed, nothing unique accumulates). Off by default -> emptyDir, so
+# the pod stays node-agnostic: a node failure just reschedules it and it re-clones
+# on start. A node-local PVC (local-path) would pin the pod to one node and strand
+# it if that node dies (which is exactly what happened when a node fell off). Set
+# enabled: true only to survive a pod restart without re-cloning, trading
+# node-mobility for restart speed.
+persistence:
+  enabled: false
+  size: 1Gi
+  # storageClassName: local-path  # only used when enabled: true
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    memory: 1Gi
+
+# Auth gate. Two modes; OIDC is the default (ADR-031).
+#
+# oidc.enabled true (default): oauth2-proxy fronts the human surfaces (SPA, /api),
+#   authenticating them against this app's Keycloak realm (a "Sign in with Google"
+#   button on the realm login). The app keeps its own HTTP Basic gate but scopes it
+#   to the /mcp machine door (STUDIO_AUTH_SCOPE=mcp), which an agent authenticates
+#   non-interactively; oauth2-proxy skips /mcp so those requests reach that gate.
+#   Fail-closed holds on both halves: no keycloak-platform-studio credential and the
+#   proxy crash-loops (human surfaces closed); no platform-studio-auth credential and
+#   /mcp answers 503.
+# oidc.enabled false: HTTP Basic (scope=all) via envFrom of auth.existingSecret gates
+#   every surface (SPA, /api, /mcp); fails closed (503) until that Secret exists
+#   (STUDIO_AUTH_USER + STUDIO_AUTH_PASSWORD).
+auth:
+  existingSecret: platform-studio-auth
+  oidc:
+    enabled: true
+    # Per-install: this install's Keycloak realm issuer (https://keycloak.<zone>/
+    # realms/platform-studio). NO default in the shared chart (anti-pattern 19).
+    issuer: ""
+    clientId: platform-studio
+    emailDomains: "*"
+    # Client secret + cookie secret; minted in-cluster in this namespace by the
+    # platform grant's generate-if-absent Job (gen-keycloak-platform-studio, ADR-034) and
+    # reflected into the identity namespace for realm provisioning. Nothing to apply.
+    existingSecret: keycloak-platform-studio
+    image:
+      repository: quay.io/oauth2-proxy/oauth2-proxy
+      tag: v7.15.5
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 64Mi
+
+# The studio's GitHub credential. The Secret carries STUDIO_GITHUB_TOKEN:
+# contents + pull requests, read/write on the platform repo, and - because the
+# two fleet envs fall back to it unless split - contents read/write, delete,
+# and packages read across the org's app repos. The clone URL itself is not a
+# secret and lives in config below; the pod does not start until this Secret
+# exists.
+content:
+  existingSecret: platform-studio-content
+
+# Non-secret app configuration. Rendered into a ConfigMap; loaded via envFrom.
+config:
+  STUDIO_PLATFORM_ROOT: /data/platform
+  # Presence of the repo URL selects the PR-mode composition (ADR-003).
+  STUDIO_PLATFORM_REPO_URL: https://github.com/VFPT-VODAFONE-FOUNDRY/adf-platform.git
+  # The install this studio serves (ADR-009 / platform ADR-032): its deploy
+  # branch is the datastore, the PR base, and the lifecycle commit target.
+  # NO DEFAULT ON PURPOSE: a default here lets any other install inherit it and
+  # write its onboardings into the wrong branch. Each install MUST set it in its
+  # prod values; PR-mode refuses to start when it is empty (studio/container.py).
+  STUDIO_DEPLOY_BRANCH: ""
+  STUDIO_GIT_AUTHOR_NAME: platform-studio
+  # Generic default (not any install's zone); an install may override in its prod values.
+  STUDIO_GIT_AUTHOR_EMAIL: platform-studio@foundry.local
+  STUDIO_PLATFORM_POLL_SECONDS: "300"
+  # The entire teams/<app>/ folder is rendered from the studio's own canonical
+  # templates keyed on the install's facts (team_skeleton for the skeleton,
+  # database_grant / identity_grant for the capability grants, INT-SKELETON-001 /
+  # INT-GRANT-001..002); no app is copied from a donor, so there is deliberately no
+  # STUDIO_REFERENCE_APP, STUDIO_REFERENCE_DB_APP, or STUDIO_REFERENCE_IDENTITY_APP.
+  # The MCP transport's DNS-rebinding guard admits localhost only by default;
+  # a deployment must allow the Host header of its public hostname. Per-install,
+  # NO default: naming one install's host in this shared chart is the config-default
+  # anti-pattern (it would silently admit the wrong host on another install). Each
+  # install sets it in its prod values.
+  STUDIO_MCP_ALLOWED_HOSTS: ""
+
+# Per-app docs site served behind the central portal at docs.<domain>/apps/<app>.
+# Built from docs/ by CI with the base baked in; this just runs the image.
+docs:
+  enabled: true
+  resources:
+    requests:
+      cpu: 10m
+      memory: 32Mi
+    limits:
+      memory: 64Mi
+
+# The shared event bus (foundry-platform ADR-041). Off by default: an install
+# whose studio holds no bus grant states its facts to the log instead, and every
+# act completes exactly as it would with a broker up, which is the one-way rule
+# rather than a fallback.
+#
+# The two secrets are what the grant produced: the seed this app minted in its
+# own namespace (never reflected anywhere) and the JWT the platform signed for
+# its public half and reflected back. They are assembled into one credentials
+# file at start, because that is what a NATS client reads.
+events:
+  enabled: false
+  servers: nats://nats.messaging.svc.cluster.local:4222
+  seedSecret: ""   # holds key `seed`; the private half, generated in this namespace
+  jwtSecret: ""    # holds key `user.jwt`; not secret, signed by the EVENTS account
+
+# Primary status reads, read-only: get any Application in applicationNamespace and list
+# pods in every namespace, so every app on the install reads its sync and workload.
+clusterRead:
+  enabled: true
+  applicationNamespace: argocd

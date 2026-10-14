@@ -1,0 +1,151 @@
+# Intent claims for the platform-studio docs site (CSD-INTENT-01 canonical schema).
+#
+# Claims come from the STARLIGHT and ADR bundles in ../csd-library/bundles/;
+# the bundle impls in tests/ carry the intent('INT-...') markers. Audit with
+# the standalone csd-intent CLI: csd-intent .
+#
+# Applied bundle starlight v0.2.0 on 2026-07-04
+# Applied bundle adr v0.1.0 on 2026-07-04
+
+INT-STARLIGHT-001:
+  version: 1.0.0
+  status: active
+  statement: "Every doc page MUST have a non-empty `title` frontmatter field."
+  rationale: "Starlight uses title for nav, page heading, and OG metadata; missing title yields broken UI."
+  test:
+    scope: unit
+    component: ContentCollection
+    type: invariant
+  criticality: critical
+
+INT-STARLIGHT-002:
+  version: 1.0.0
+  status: active
+  statement: "Every doc page MUST have a non-empty `id` frontmatter field."
+  rationale: "Stable per-doc identifier for cross-linking and navigation; required by the content collection schema."
+  test:
+    scope: unit
+    component: ContentCollection
+    type: invariant
+  criticality: critical
+
+INT-STARLIGHT-003:
+  version: 1.0.0
+  status: active
+  statement: "Doc page `id` values MUST be unique across the entire docs collection."
+  rationale: "Duplicate IDs break cross-link resolution and content-collection queries."
+  test:
+    scope: integration
+    component: ContentCollection
+    type: invariant
+  criticality: critical
+
+INT-STARLIGHT-004:
+  version: 1.1.0
+  status: active
+  statement: "Every doc page MUST have a `type` frontmatter field with value in {Overview, Guide, Standard, Reference, Template, Intent, Flow}."
+  rationale: "Type drives nav grouping and template selection; unknown values produce orphan pages. Template and Intent match REF-Documentation 7.3; Flow covers sequence-diagram pages."
+  test:
+    scope: unit
+    component: ContentCollection
+    type: contract
+  criticality: high
+
+INT-STARLIGHT-005:
+  version: 1.0.0
+  status: active
+  statement: "Every doc page MUST have a `status` frontmatter field with value in {Draft, Active, Deprecated}."
+  rationale: "Status drives visibility filters and review queues."
+  test:
+    scope: unit
+    component: ContentCollection
+    type: contract
+  criticality: high
+
+INT-STARLIGHT-006:
+  version: 1.0.0
+  status: active
+  statement: "Every doc page MUST have an `updated` frontmatter field formatted as YYYY-MM-DD."
+  rationale: "Drives staleness detection and 'last updated' display in the rendered site."
+  test:
+    scope: unit
+    component: ContentCollection
+    type: contract
+  criticality: high
+
+INT-STARLIGHT-007:
+  version: 1.0.0
+  status: active
+  statement: "Every doc page MUST open with non-empty introductory prose before its first level-2 heading. A single leading navigation line or bold-only line before the prose is allowed; what matters is that some non-empty, non-heading prose exists before the first level-2 heading."
+  rationale: "A page that jumps straight into sections gives the reader no orientation; a short intro states what the page is and how its parts fit before the first `## ` heading."
+  test:
+    scope: unit
+    component: PageStructure
+    type: invariant
+  criticality: high
+
+INT-STARLIGHT-008:
+  version: 1.0.0
+  status: active
+  statement: "Every doc page MUST contain at least one level-2 heading."
+  rationale: "Level-2 headings are the page's sections; a page with none is an undifferentiated wall of text with no nav anchors or scannable structure."
+  test:
+    scope: unit
+    component: PageStructure
+    type: invariant
+  criticality: medium
+
+INT-STARLIGHT-009:
+  version: 1.0.0
+  status: active
+  statement: "A page with `type: Flow` MUST contain a Mermaid `sequenceDiagram` and a steps section (a level-2 heading named Steps OR an ordered list)."
+  rationale: "A Flow tells a dynamic story; the sequence diagram is the picture and the steps are the narration. One without the other is half a flow."
+  test:
+    scope: unit
+    component: PageStructure
+    type: contract
+  criticality: high
+
+INT-STARLIGHT-010:
+  version: 1.0.0
+  status: active
+  statement: "A page with `type: Guide` MUST contain a numbered procedure: an ordered list OR at least two headings that begin with a number (for example `## 1. ...`)."
+  rationale: "A Guide is a how-to; the reader needs ordered steps to follow, expressed either as an ordered list or as numbered section headings."
+  test:
+    scope: unit
+    component: PageStructure
+    type: contract
+  criticality: medium
+
+INT-ADR-001:
+  version: 1.0.0
+  status: active
+  statement: "Every ADR page MUST have an `adr_status` frontmatter field with value in {Proposed, Decided, Superseded, Deprecated, Pending}."
+  rationale: "The ADR lifecycle status drives review and supersession; an unknown or missing status breaks the decision log's meaning."
+  test:
+    scope: unit
+    component: Decisions
+    type: contract
+  criticality: high
+
+INT-ADR-002:
+  version: 1.0.0
+  status: active
+  statement: "ADR page `id` values MUST be unique across the decisions collection."
+  rationale: "Duplicate ADR ids break cross-references and the supersede graph."
+  test:
+    scope: integration
+    component: Decisions
+    type: invariant
+  criticality: critical
+
+INT-ADR-003:
+  version: 1.0.0
+  status: active
+  statement: "Every `supersedes` and `superseded_by` reference on an ADR page MUST resolve to an existing ADR page."
+  rationale: "A supersede link to a non-existent ADR is a broken decision graph; the lifecycle relies on these resolving."
+  test:
+    scope: integration
+    component: Decisions
+    type: invariant
+  criticality: high

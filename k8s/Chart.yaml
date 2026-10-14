@@ -1,0 +1,6 @@
+apiVersion: v2
+name: platform-studio
+description: Onboarding and management studio for the vodafone-foundry.com install platform repo.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

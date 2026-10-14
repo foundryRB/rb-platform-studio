@@ -1,0 +1,27 @@
+# Conventional Commits enforcement for this repo (the app-repo contract).
+#
+# A bypassable local commit-msg hook: a commit message that is not a Conventional
+# Commit is rejected, but `git commit --no-verify` still lets it through. The
+# convention is what semantic-release reads to compute the SemVer of the image and
+# chart; a malformed message silently yields no release, so this is the fast local
+# guard against that.
+#
+# One-time setup per clone (the .git/hooks install is NOT committed, only this config is):
+#   pip install pre-commit          # or: pipx install pre-commit
+#   pre-commit install --install-hooks
+#
+default_install_hook_types: [commit-msg]
+repos:
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.4.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]
+  - repo: local
+    hooks:
+        - id: no-co-authored-by
+          name: no Co-authored-by trailer
+          entry: '^[ \t\v\f]*Co-authored-by:'
+          language: pygrep
+          args: [--ignore-case]
+          stages: [commit-msg]

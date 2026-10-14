@@ -1,0 +1,33 @@
+{
+  "name": "platform-studio-docs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Onboarding and management studio for the platform repo: registry, conformance, gated onboardings as pull requests, MCP server",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "generate:decisions": "node scripts/generate-decisions.mjs",
+    "prebuild": "npm run generate:decisions",
+    "preview": "astro preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint:md": "markdownlint-cli2 \"src/content/docs/**/*.{md,mdx}\""
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/starlight": "^0.42.5",
+    "@psa-department-of-engineering/vitest-intent": "^2.0.1",
+    "@types/node": "^22.0.0",
+    "astro": "^7.2.10",
+    "markdownlint-cli2": "^0.23.3",
+    "typescript": "^5.8.0",
+    "vitest": "^4.1.11",
+    "zod": "^3.25.0"
+  },
+  "dependencies": {
+    "@psa-department-of-engineering/starlight-theme": "^1.2.0",
+    "astro-mermaid": "^2.0.2",
+    "mermaid": "^11.16.1"
+  }
+}

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+
+# Built SPA staged for the image
+studio-backend/web/
+
+# Environment and secrets: only *.env.example is committed
+.env
+*.env
+!*.env.example
+
+# OS noise
+Thumbs.db
+.DS_Store

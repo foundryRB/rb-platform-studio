@@ -1,0 +1,216 @@
+# `Recreate` strategy: with a PVC (persistence.enabled) it is mandatory, since a
+# rolling update running two pods against the same ReadWriteOnce volume could race
+# on git operations; with the default emptyDir it is harmless (each pod re-clones
+# its own volume) and avoids a brief double-clone.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "platform-studio.labels" . | nindent 4 }}
+spec:
+  replicas: {{ if .Values.paused }}0{{ else }}1{{ end }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "platform-studio.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        # env vars from envFrom are read only at container start, so roll the
+        # pod whenever the rendered ConfigMap changes.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "platform-studio.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-status
+      automountServiceAccountToken: {{ .Values.clusterRead.enabled }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.events.enabled }}
+      initContainers:
+        # A NATS client reads one credentials file; the grant delivers its two
+        # halves as two secrets, because reflecting them together would have
+        # carried the private seed out of this namespace. Assembling them here
+        # keeps that boundary and costs one short init step. Uses the app's own
+        # image so the pod pulls nothing extra.
+        - name: assemble-nats-creds
+          image: "{{ .Values.images.app.repository }}:{{ .Values.images.app.tag }}"
+          imagePullPolicy: {{ .Values.images.app.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              # Built line by line rather than with one printf: a credentials file is
+              # framed text, and $(cat ...) normalises whatever trailing newline each
+              # secret happens to carry.
+              {
+                echo '-----BEGIN NATS USER JWT-----'
+                echo "$(cat /jwt/user.jwt)"
+                echo '------END NATS USER JWT------'
+                echo
+                echo '-----BEGIN USER NKEY SEED-----'
+                echo "$(cat /seed/seed)"
+                echo '------END USER NKEY SEED------'
+              } > /out/app.creds
+              chmod 400 /out/app.creds
+              echo "assembled the bus credentials"
+          volumeMounts:
+            - { name: nats-seed, mountPath: /seed, readOnly: true }
+            - { name: nats-jwt, mountPath: /jwt, readOnly: true }
+            - { name: nats-creds, mountPath: /out }
+      {{- end }}
+      containers:
+        - name: platform-studio
+          image: "{{ .Values.images.app.repository }}:{{ .Values.images.app.tag }}"
+          imagePullPolicy: {{ .Values.images.app.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: STUDIO_CLUSTER_READ
+              value: {{ .Values.clusterRead.enabled | quote }}
+            # The running image's tag, so /api/health reports which release is
+            # actually serving. Sourced from the tag Image Updater writes back,
+            # never a constant in code: a hardcoded string is not freshness.
+            - name: APP_VERSION
+              value: "{{ .Values.images.app.tag }}"
+            {{- if .Values.auth.oidc.enabled }}
+            # OIDC mode: oauth2-proxy (below) gates the human surfaces; the app keeps
+            # its HTTP Basic gate but scopes it to the /mcp machine door. The Basic
+            # credential still loads via the auth Secret envFrom below.
+            - name: STUDIO_AUTH_SCOPE
+              value: "mcp"
+            {{- end }}
+            {{- if .Values.events.enabled }}
+            - name: STUDIO_NATS_SERVERS
+              value: {{ .Values.events.servers | quote }}
+            - name: STUDIO_NATS_CREDS
+              value: /var/run/nats/app.creds
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ .Release.Name }}-config
+            {{- with .Values.auth.existingSecret }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+            {{- with .Values.content.existingSecret }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+            {{- if .Values.events.enabled }}
+            - name: nats-creds
+              mountPath: /var/run/nats
+              readOnly: true
+            {{- end }}
+          # timeoutSeconds: the k8s default of 1s killed a healthy studio.
+          # Heavy work used to block the event loop (a conformance suite is tens
+          # of seconds of GitHub reads, and was minutes of them before those
+          # reads fanned out), health stopped answering inside 1s, and
+          # three straight liveness misses had the kubelet SIGTERM the studio
+          # MID-ONBOARDING - the gate's rejection report died with it. The
+          # code now runs that work off the loop (INT-SRV-001); the wider
+          # timeout is defense in depth, not the fix.
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+        {{- if .Values.auth.oidc.enabled }}
+        # oauth2-proxy: the OIDC gate for the human surfaces. It authenticates
+        # against this app's Keycloak realm and reverse-proxies to the app on
+        # localhost:8000. It bypasses /mcp (--skip-auth-route) so the machine door
+        # reaches the app's own HTTP Basic gate instead of an interactive login an
+        # agent cannot complete, and keeps the client's Authorization header on that
+        # route (--skip-auth-strip-headers=false; it otherwise defaults to true and
+        # would drop the Basic credential). Client + cookie secret come from the
+        # app-owned keycloak-platform-studio Secret; absent it, the proxy crash-loops
+        # and the Service (which targets this container) has no ready endpoint, so the
+        # human surfaces fail closed.
+        - name: oauth2-proxy
+          image: "{{ .Values.auth.oidc.image.repository }}:{{ .Values.auth.oidc.image.tag }}"
+          args:
+            - --http-address=0.0.0.0:4180
+            - --upstream=http://127.0.0.1:8000
+            - --provider=oidc
+            - --oidc-issuer-url={{ .Values.auth.oidc.issuer }}
+            - --client-id={{ .Values.auth.oidc.clientId }}
+            - --email-domain={{ .Values.auth.oidc.emailDomains | quote }}
+            - --redirect-url=https://{{ .Values.host }}/oauth2/callback
+            - --cookie-secure=true
+            - --reverse-proxy=true
+            - --skip-provider-button=true
+            - --skip-auth-route=^/mcp(/|$)
+            # The health route is already unauthenticated inside the pod (the
+            # probes above hit it bare); skipping it at the proxy lets an external
+            # observer read which release is serving instead of the gate's uniform
+            # 302. Matching uses the path alone, so query strings preserve the
+            # exemption and /api/healthcheck stays gated.
+            - --skip-auth-route=^/api/health$
+            - --skip-auth-strip-headers=false
+          env:
+            - name: OAUTH2_PROXY_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.oidc.existingSecret }}
+                  key: clientSecret
+            - name: OAUTH2_PROXY_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.oidc.existingSecret }}
+                  key: cookieSecret
+          ports:
+            - name: oidc
+              containerPort: 4180
+          readinessProbe:
+            httpGet:
+              path: /ping
+              port: oidc
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /ping
+              port: oidc
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.auth.oidc.resources | nindent 12 }}
+        {{- end }}
+      volumes:
+        {{- if .Values.events.enabled }}
+        - name: nats-seed
+          secret:
+            secretName: {{ .Values.events.seedSecret | required "events.enabled needs events.seedSecret" }}
+        - name: nats-jwt
+          secret:
+            secretName: {{ .Values.events.jwtSecret | required "events.enabled needs events.jwtSecret" }}
+        - name: nats-creds
+          emptyDir: {}
+        {{- end }}
+        - name: data
+        {{- if .Values.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-data
+        {{- else }}
+          emptyDir: {}
+        {{- end }}

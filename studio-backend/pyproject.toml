@@ -1,0 +1,51 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "studio-backend"
+version = "0.1.0"
+description = "Onboarding and management studio for one Foundry install: manifest browser, conformance reports, PR-mode onboarding against the install deploy branch."
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+    "mcp>=1.28,<2.0",
+    "httpx>=0.27",
+    # The event-bus publisher (foundry-platform ADR-041). Imported lazily by the
+    # NATS adapter, so an install with no bus grant never loads it. The nkeys
+    # extra is not optional here: the bus runs decentralized auth, so the client
+    # signs a server nonce with its seed to connect, and without it every
+    # publish is dropped with "No module named 'nkeys'".
+    "nats-py[nkeys]>=2.6",
+]
+
+[project.optional-dependencies]
+# The install conformance checks run in-process (yaml over the working tree),
+# so the runtime image needs no extra; pytest-intent here serves the studio's
+# own @intent-marked test suite.
+dev = [
+    "pytest>=7.0",
+    "ruff==0.16.8",
+    "csd-intent~=0.4.0",
+    "csd-pytest-intent~=0.3.0",
+]
+
+[project.scripts]
+studio-backend-api = "studio.adapters.inbound.http.run:main"
+
+[tool.setuptools.packages.find]
+include = ["studio*"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

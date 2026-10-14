@@ -1,0 +1,1829 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "platform-studio API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Health",
+        "description": "Liveness/readiness probe; exempt from auth, and skipped at the OIDC gate\nso an external observer can read which release serves without a credential.",
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Health Api Health Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/agent-credential": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Agent Credential",
+        "description": "The MCP HTTP Basic credential (base64 of user:password) for the in-app\n\"Connect agent\" one-liner.\n\nReachable only by an already-authenticated caller: under scope=mcp the\noauth2-proxy in front admits only a logged-in, allowlisted human; under\nscope=all the Basic gate covers it. Answers 503 when the credential is unset,\nmirroring the fail-closed auth posture (there is nothing to hand out).",
+        "operationId": "agent_credential_api_agent_credential_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Agent Credential Api Agent Credential Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps": {
+      "get": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "List Apps",
+        "description": "Every declared app joined with its team-folder facts.",
+        "operationId": "list_apps_api_apps_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AppResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Apps Api Apps Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{name}": {
+      "get": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "Get App",
+        "description": "One declared app: manifest entry, hostname, repo, database, MCP.",
+        "operationId": "get_app_api_apps__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{name}/status": {
+      "get": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "App Status",
+        "description": "One app's delivery evidence chain: each link typed ok/failed/skipped,\nplus the derived stage and a one-line summary.",
+        "operationId": "app_status_api_apps__name__status_get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppStatusResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{name}/pause": {
+      "post": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "Pause App",
+        "description": "Pause an app (scale-to-zero override); direct-commits to the deploy branch.",
+        "operationId": "pause_app_api_apps__name__pause_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{name}/resume": {
+      "post": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "Resume App",
+        "description": "Resume a paused app; removes the override and direct-commits to the deploy branch.",
+        "operationId": "resume_app_api_apps__name__resume_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{name}/promotion/freeze": {
+      "post": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "Freeze Promotion",
+        "description": "Hold the app on its current version: adds the Image Updater freeze tag\nfilters; direct-commits to the deploy branch.",
+        "operationId": "freeze_promotion_api_apps__name__promotion_freeze_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/apps/{name}/promotion/resume": {
+      "post": {
+        "tags": [
+          "apps"
+        ],
+        "summary": "Resume Promotion",
+        "description": "Let the app take new versions again; removes the freeze tag filters and\ndirect-commits to the deploy branch.",
+        "operationId": "resume_promotion_api_apps__name__promotion_resume_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/claims": {
+      "get": {
+        "tags": [
+          "claims"
+        ],
+        "summary": "List Claims",
+        "description": "Every conformance claim the platform's intent.yaml declares.",
+        "operationId": "list_claims_api_claims_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClaimResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Claims Api Claims Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings": {
+      "get": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "List Platform Settings",
+        "description": "Every curated platform knob, as the install's deploy branch has it.",
+        "operationId": "list_platform_settings_api_settings_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PlatformSettingResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Platform Settings Api Settings Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/{key}": {
+      "put": {
+        "tags": [
+          "settings"
+        ],
+        "summary": "Update Platform Setting",
+        "description": "Tune one curated knob; gated, PR-shipped against the install's deploy branch.\n\nReturns the same gated-change result an onboarding does - the changed\nfiles, both conformance reports, and the pull request - because it is the\nsame act: a conformance-gated write of installed state, admitted by merge\n(ADR-036) rather than applied here.",
+        "operationId": "update_platform_setting_api_settings__key__put",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSettingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/conformance/run": {
+      "post": {
+        "tags": [
+          "conformance"
+        ],
+        "summary": "Run Conformance",
+        "description": "Run the platform's conformance suite and return per-test outcomes.",
+        "operationId": "run_conformance_api_conformance_run_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConformanceReportResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/onboard/app": {
+      "post": {
+        "tags": [
+          "onboard"
+        ],
+        "summary": "Onboard App",
+        "description": "Prepare the install-side app onboarding; gated, PR-shipped against the deploy branch.",
+        "operationId": "onboard_app_api_onboard_app_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardAppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/repos/app": {
+      "post": {
+        "tags": [
+          "onboard"
+        ],
+        "summary": "Create App Repo",
+        "description": "Create a new org app repo pre-templated with the REF-Foundry contract.",
+        "operationId": "create_app_repo_api_repos_app_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAppRepoRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoScaffoldResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/offboard/app": {
+      "post": {
+        "tags": [
+          "onboard"
+        ],
+        "summary": "Offboard App",
+        "description": "Prepare the install-side app offboarding; gated, PR-shipped against the deploy branch.\n\nThe merge prunes the app's namespace with every volume its chart claims,\ntheir data too on a Delete reclaim policy; copy those out before the call.",
+        "operationId": "offboard_app_api_offboard_app_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OffboardAppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reconcile/app": {
+      "post": {
+        "tags": [
+          "onboard"
+        ],
+        "summary": "Reconcile App",
+        "description": "Re-render an app's team folder against a fresh declaration; gated, PR-shipped.",
+        "operationId": "reconcile_app_api_reconcile_app_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileAppRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reconcile/identity": {
+      "post": {
+        "tags": [
+          "onboard"
+        ],
+        "summary": "Reconcile Identity",
+        "description": "Re-render an app's realm grant against the install's declaration; gated, PR-shipped.",
+        "operationId": "reconcile_identity_api_reconcile_identity_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReconcileIdentityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/onboard/database": {
+      "post": {
+        "tags": [
+          "onboard"
+        ],
+        "summary": "Onboard Database",
+        "description": "Prepare an app's database grant; gated, PR-shipped against the deploy branch.",
+        "operationId": "onboard_database_api_onboard_database_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardDatabaseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/onboard/identity": {
+      "post": {
+        "tags": [
+          "onboard"
+        ],
+        "summary": "Onboard Identity",
+        "description": "Prepare an app's Keycloak realm grant; gated, PR-shipped against the deploy branch.",
+        "operationId": "onboard_identity_api_onboard_identity_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardIdentityRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/onboard/events": {
+      "post": {
+        "tags": [
+          "onboard"
+        ],
+        "summary": "Onboard Events",
+        "description": "Prepare an app's event-bus grant; gated, PR-shipped against the deploy branch.",
+        "operationId": "onboard_events_api_onboard_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnboardEventsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnboardingResultResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prs": {
+      "get": {
+        "tags": [
+          "prs"
+        ],
+        "summary": "List Prs",
+        "description": "Every change the studio has open: onboards, offboards, reconciles, settings.",
+        "operationId": "list_prs_api_prs_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PrInfoResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Prs Api Prs Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prs/{number}": {
+      "get": {
+        "tags": [
+          "prs"
+        ],
+        "summary": "Get Pr",
+        "description": "One onboarding pull request's merge status: the poll-until-merged signal.",
+        "operationId": "get_pr_api_prs__number__get",
+        "parameters": [
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrInfoResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/prs/cancel": {
+      "post": {
+        "tags": [
+          "prs"
+        ],
+        "summary": "Cancel Onboarding",
+        "description": "Clear a change branch off the remote that no open pull request tracks.",
+        "operationId": "cancel_onboarding_api_prs_cancel_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancelOnboardingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelledChangeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sync/refresh": {
+      "post": {
+        "tags": [
+          "sync"
+        ],
+        "summary": "Refresh Content",
+        "description": "Pull the upstream deploy-branch head into the managed checkout.",
+        "operationId": "refresh_content_api_sync_refresh_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AppResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "repo": {
+            "type": "string",
+            "title": "Repo"
+          },
+          "mcp_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mcp Url"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamManifestResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "promotion": {
+            "type": "string",
+            "title": "Promotion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "repo",
+          "mcp_url",
+          "role",
+          "manifest",
+          "status",
+          "promotion"
+        ],
+        "title": "AppResponse",
+        "description": "A manifest entry joined with its team-folder facts, when onboarded.\n\n``name`` and ``repo`` are two facts: the name keys everything the platform\nrenders (namespace, hostname, chart, packages), the repo names where the\ncode lives. ``repo`` is always resolved - the declared value, else the name\n- so a caller never re-derives the default, and it is present even for an\napp declared but not yet onboarded, where ``manifest`` (and so\n``manifest.repo_url``) is still None."
+      },
+      "AppStatusResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "onboarded": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "onboarding_pr": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "app_repo": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "ci": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "promotion": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "credentials": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "grant_drift": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "probe": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "smoke": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          },
+          "identity_caveat": {
+            "$ref": "#/components/schemas/StatusLinkResponse"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "stage",
+          "summary",
+          "onboarded",
+          "onboarding_pr",
+          "app_repo",
+          "ci",
+          "promotion",
+          "credentials",
+          "grant_drift",
+          "probe",
+          "smoke",
+          "identity_caveat"
+        ],
+        "title": "AppStatusResponse",
+        "description": "The delivery evidence chain of one app, typed link by link.\n\n``stage`` is one of not_onboarded, pr_open, awaiting_first_artifacts,\npromoted, serving; serving requires the promotion AND probe links ok.\n``summary`` names the stage and the first link that is not ok, in chain\norder. ``grant_drift`` reports whether each capability grant on the branch\nstill matches what its canonical template renders, which is advisory: it\nnames a hand edit rather than refusing anything.\n``credentials`` reports whether every platform-minted credential\nthe app's chart names has the install grant that mints it; it sits outside\nthe stage derivation, explaining a hostname that does not answer.\n``smoke`` reports the app's in-cluster deployed-smoke verdict, read off\nthe platform's smoke reporter at the docs host (ADR-047); advisory, and\nskipped for an app that has not adopted the contract."
+      },
+      "CancelOnboardingRequest": {
+        "properties": {
+          "branch": {
+            "type": "string",
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Branch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "branch"
+        ],
+        "title": "CancelOnboardingRequest",
+        "description": "The branch to clear off the remote.\n\nNamed in full (``onboard/<app>``, ``onboard/<app>-db``,\n``offboard/<app>``, ``reconcile/<app>``, ``settings/<key>``), exactly as\nthe refusal that blocked the re-run reported it."
+      },
+      "CancelledChangeResponse": {
+        "properties": {
+          "branch": {
+            "type": "string",
+            "title": "Branch"
+          },
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted"
+          },
+          "prs": {
+            "items": {
+              "$ref": "#/components/schemas/PrInfoResponse"
+            },
+            "type": "array",
+            "title": "Prs"
+          }
+        },
+        "type": "object",
+        "required": [
+          "branch",
+          "deleted",
+          "prs"
+        ],
+        "title": "CancelledChangeResponse",
+        "description": "What the cancel found and what it removed.\n\n``deleted`` is false when the remote already carried no such branch: the\nverb is idempotent, so a repeat reports a clear remote rather than\nfailing. ``prs`` carries every pull request that ever referenced the\nbranch, and is empty for the orphan case the verb exists for."
+      },
+      "ClaimResponse": {
+        "properties": {
+          "claim_id": {
+            "type": "string",
+            "title": "Claim Id"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "scope": {
+            "type": "string",
+            "title": "Scope"
+          },
+          "criticality": {
+            "type": "string",
+            "title": "Criticality"
+          }
+        },
+        "type": "object",
+        "required": [
+          "claim_id",
+          "summary",
+          "status",
+          "scope",
+          "criticality"
+        ],
+        "title": "ClaimResponse",
+        "description": "One intent claim the conformance suite attests."
+      },
+      "ConformanceReportResponse": {
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "title": "Ok"
+          },
+          "exit_code": {
+            "type": "integer",
+            "title": "Exit Code"
+          },
+          "passed": {
+            "type": "integer",
+            "title": "Passed"
+          },
+          "failed": {
+            "type": "integer",
+            "title": "Failed"
+          },
+          "skipped": {
+            "type": "integer",
+            "title": "Skipped"
+          },
+          "errors": {
+            "type": "integer",
+            "title": "Errors"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/TestResultResponse"
+            },
+            "type": "array",
+            "title": "Results"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output"
+          }
+        },
+        "type": "object",
+        "required": [
+          "ok",
+          "exit_code",
+          "passed",
+          "failed",
+          "skipped",
+          "errors",
+          "results",
+          "output"
+        ],
+        "title": "ConformanceReportResponse",
+        "description": "Outcome of the platform's conformance suite returned over HTTP."
+      },
+      "CreateAppRepoRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Description"
+          },
+          "repo": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Repo",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "display_name",
+          "description"
+        ],
+        "title": "CreateAppRepoRequest",
+        "description": "The facts a walking-skeleton repo is rendered from.\n\n``name`` is the fleet name: the chart, the GHCR package prefix, and later\nthe namespace and hostname. ``repo`` is the repository to create it in,\na separate fact (INT-SKELETON-001) that defaults to the name - an\norganisation shared with other work prefixes its repositories while its\napps keep their own names, and without this the two could only ever be the\nsame string. ``display_name`` and ``description`` seed the landing page,\nthe docs site, and the README, and are re-declared to the onboarding later\n(the manifest stays the single source of the tile facts)."
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "OffboardAppRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "OffboardAppRequest",
+        "description": "The one fact an offboarding needs: which app to retire.\n\nThe removal is derived from the record itself (the manifest entry and\nwhatever the teams/<app>/ folder holds), so nothing else is declared\nhere. The merge also prunes the app's namespace, deleting every volume\nits own chart claims, with its data on a Delete reclaim policy, so those\nvolumes are copied out before the call. Stateful grants are never\ndropped by the offboarding: the pull request enumerates them for an\nexplicit disposition decision."
+      },
+      "OnboardAppRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Display Name"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Description"
+          },
+          "icon": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Icon"
+          },
+          "expose_mcp": {
+            "type": "boolean",
+            "title": "Expose Mcp",
+            "default": false
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "parts",
+              "output"
+            ],
+            "title": "Role",
+            "default": "output"
+          },
+          "image_components": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Image Components",
+            "default": []
+          },
+          "repo": {
+            "type": "string",
+            "title": "Repo",
+            "default": ""
+          },
+          "allow_bootstrap": {
+            "type": "boolean",
+            "title": "Allow Bootstrap",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "display_name",
+          "description",
+          "icon"
+        ],
+        "title": "OnboardAppRequest",
+        "description": "The operator-facing facts an app onboarding needs.\n\n``role`` is the manifest list the entry lands in (ADR-032): ``parts`` for\nthe apps the Foundry depends on, ``output`` (the default) for the apps it\nbuilt and runs. ``image_components`` names the app's released images when\nthere is more than one (e.g. ``[\"server\", \"client\", \"docs\"]``): the\nApplication then watches one GHCR package per component\n(``<name>-<component>``) and writes ``<name>.images.<component>.tag``;\nempty means the single-image shape (package ``<name>``,\n``<name>.image.tag``). ``repo`` is the app's repository under the org, the\none thing the rendered Application's ``repoURL`` points at; empty defaults\nto ``name``, the same string for most apps. ``name`` is the fleet name\n(namespace, hostname label, chart, GHCR packages), so an app whose\nrepository is named differently from itself names both.\n``allow_bootstrap`` waives the strict admission on\nskipped app-side conformance legs (the deliberate walking-skeleton\nbootstrap, recorded in the PR body)."
+      },
+      "OnboardDatabaseRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "allow_bootstrap": {
+            "type": "boolean",
+            "title": "Allow Bootstrap",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "OnboardDatabaseRequest",
+        "description": "The facts a database grant needs: whose it is, and whether skipped\napp-side conformance legs are waived (the walking-skeleton bootstrap)."
+      },
+      "OnboardEventsRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Domains"
+          },
+          "allow_bootstrap": {
+            "type": "boolean",
+            "title": "Allow Bootstrap",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "domains"
+        ],
+        "title": "OnboardEventsRequest",
+        "description": "The facts an events grant needs: whose it is, which REF-Events domains it\nmay publish under, and whether skipped app-side conformance legs are waived\n(the walking-skeleton bootstrap).\n\n``domains`` has no default. Publishing is owned per domain, so a grant that\nnamed none would admit a reader while looking like a producer grant, and one\ndefaulting to the app's own name would coin a domain the type registry never\nagreed to."
+      },
+      "OnboardIdentityRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "allow_bootstrap": {
+            "type": "boolean",
+            "title": "Allow Bootstrap",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "OnboardIdentityRequest",
+        "description": "The facts a realm grant needs: whose it is, and whether skipped\napp-side conformance legs are waived (the walking-skeleton bootstrap)."
+      },
+      "OnboardingResultResponse": {
+        "properties": {
+          "app": {
+            "type": "string",
+            "title": "App"
+          },
+          "changed_files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Changed Files"
+          },
+          "baseline": {
+            "$ref": "#/components/schemas/ConformanceReportResponse"
+          },
+          "report": {
+            "$ref": "#/components/schemas/ConformanceReportResponse"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "pr": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrInfoResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "app",
+          "changed_files",
+          "baseline",
+          "report",
+          "branch",
+          "pr"
+        ],
+        "title": "OnboardingResultResponse",
+        "description": "What an onboarding changed, what the gates said, and where it went."
+      },
+      "PlatformSettingResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "category": {
+            "type": "string",
+            "title": "Category"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "default": {
+            "type": "string",
+            "title": "Default"
+          },
+          "effective": {
+            "type": "string",
+            "title": "Effective"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source"
+          },
+          "field": {
+            "type": "string",
+            "title": "Field"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "category",
+          "unit",
+          "value",
+          "default",
+          "effective",
+          "source",
+          "field",
+          "description"
+        ],
+        "title": "PlatformSettingResponse",
+        "description": "One platform knob as the install's deploy branch currently has it.\n\n`value` is what the install pins, or null when it pins nothing; `default`\nis the chart's fallback; `effective` is what the component runs with. The\nthree are reported separately so a caller can tell \"explicitly set to 30\ndays\" from \"inherits 30 days\", which differ the moment the chart's default\nmoves."
+      },
+      "PrInfoResponse": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "branch": {
+            "type": "string",
+            "title": "Branch"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "merged": {
+            "type": "boolean",
+            "title": "Merged"
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "title",
+          "url",
+          "branch",
+          "state",
+          "merged"
+        ],
+        "title": "PrInfoResponse",
+        "description": "Identity and state of one onboarding pull request.\n\n``merged`` is the admission signal an onboarding run polls for: only\n``merged: true`` means the platform repo's CI admitted the app (ADR-036);\na closed-not-merged PR is an abandonment."
+      },
+      "ReconcileAppRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "image_components": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Image Components",
+            "default": []
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "default": ""
+          },
+          "repo": {
+            "type": "string",
+            "title": "Repo",
+            "default": ""
+          },
+          "allow_bootstrap": {
+            "type": "boolean",
+            "title": "Allow Bootstrap",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ReconcileAppRequest",
+        "description": "The fresh declaration a reconcile re-renders the team folder against.\n\n``image_components`` is the accountable re-declaration of the app's\nreleased images (empty means the single-image shape), the one input that\nusually motivates the reconcile; ``description`` refreshes the manifest's\ntile description when given (empty keeps the current one); ``repo``\noverrides the repository the Application points at and the manifest\nentry records (empty keeps the entry's, else the Application's).\nDisplay, icon, role, and the mcp flag are read from the existing manifest\nentry: reconcile repairs the rendered folder, it does not rebrand the app."
+      },
+      "ReconcileIdentityRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 63,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "allow_bootstrap": {
+            "type": "boolean",
+            "title": "Allow Bootstrap",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "ReconcileIdentityRequest",
+        "description": "The facts a realm re-render needs: whose realm, and whether skipped\napp-side conformance legs are waived (the walking-skeleton bootstrap).\n\nNothing else is taken: the declaration a re-render applies is the install's\nown (``defaultBrokers`` and the login theme on its deploy branch), never a\ncaller's, so the realm can only ever be brought to what the branch says."
+      },
+      "RefreshResponse": {
+        "properties": {
+          "refreshed": {
+            "type": "boolean",
+            "title": "Refreshed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refreshed"
+        ],
+        "title": "RefreshResponse",
+        "description": "Acknowledgement that the checkout was reconciled with upstream."
+      },
+      "RepoScaffoldResponse": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "repo_url": {
+            "type": "string",
+            "title": "Repo Url"
+          },
+          "branch": {
+            "type": "string",
+            "title": "Branch"
+          },
+          "deploy_branch": {
+            "type": "string",
+            "title": "Deploy Branch"
+          },
+          "files": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Files"
+          },
+          "image_components": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Image Components"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "repo_url",
+          "branch",
+          "deploy_branch",
+          "files",
+          "image_components"
+        ],
+        "title": "RepoScaffoldResponse",
+        "description": "The created repository and the onboarding declaration it takes."
+      },
+      "StatusLinkResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "detail"
+        ],
+        "title": "StatusLinkResponse",
+        "description": "One link of the delivery evidence chain: its verdict and detail.\n\n``status`` is ok, failed, or skipped; a skipped link's detail always\nnames the reason it could not be evaluated."
+      },
+      "TeamManifestResponse": {
+        "properties": {
+          "hostname": {
+            "type": "string",
+            "title": "Hostname"
+          },
+          "repo_url": {
+            "type": "string",
+            "title": "Repo Url"
+          },
+          "target_revision": {
+            "type": "string",
+            "title": "Target Revision"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "icon": {
+            "type": "string",
+            "title": "Icon"
+          },
+          "has_database": {
+            "type": "boolean",
+            "title": "Has Database"
+          },
+          "has_identity": {
+            "type": "boolean",
+            "title": "Has Identity"
+          },
+          "has_events": {
+            "type": "boolean",
+            "title": "Has Events",
+            "default": false
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "promotion": {
+            "type": "string",
+            "title": "Promotion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "hostname",
+          "repo_url",
+          "target_revision",
+          "display_name",
+          "description",
+          "icon",
+          "has_database",
+          "has_identity",
+          "paused",
+          "promotion"
+        ],
+        "title": "TeamManifestResponse",
+        "description": "The onboarding facts one team manifest fixes."
+      },
+      "TestResultResponse": {
+        "properties": {
+          "node_id": {
+            "type": "string",
+            "title": "Node Id"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "node_id",
+          "outcome"
+        ],
+        "title": "TestResultResponse",
+        "description": "One pytest node id, its verdict, and what the node id cannot say.\n\n``detail`` names the concrete artifact a row judged (the repository that\nwould not answer, say); rows whose node id is self-explanatory leave it\nempty."
+      },
+      "UpdateSettingRequest": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Value",
+            "description": "The knob's new value, e.g. '720h'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ],
+        "title": "UpdateSettingRequest",
+        "description": "The new value for the knob named in the path.\n\nShape only here: what counts as a valid value is the knob's own unit\n(a duration for the retention horizons), judged in the domain, so the rule\nlives with the registry that declares the unit rather than being restated\nper transport."
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

@@ -1,0 +1,5 @@
+/* Site-specific overrides only. The shared theme (warm dark palette + Mermaid
+   contrast layer) comes from @psa-department-of-engineering/starlight-theme, wired
+   ahead of this file in astro.config.mjs customCss. Keep this file minimal; add a
+   rule here only for something genuinely specific to this site.
+   See REF-StarlightDocs section 8.1 ("consume the shared theme package"). */

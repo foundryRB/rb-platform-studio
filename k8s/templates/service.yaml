@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "platform-studio.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "platform-studio.selectorLabels" . | nindent 4 }}
+  ports:
+    # In OIDC mode the entry point is the oauth2-proxy sidecar (port 4180); otherwise
+    # the app itself (8000). The published port stays 8000, so the platform HTTPRoute
+    # is unchanged; only what it lands on moves behind the gate.
+    - name: http
+      port: 8000
+      targetPort: {{ if .Values.auth.oidc.enabled }}oidc{{ else }}http{{ end }}
+    # The east-west machine door: the app container directly, bypassing the OIDC
+    # sidecar, for the Console's in-cluster REST calls (the fleet read and the
+    # lifecycle writes, which ride typed HTTP statuses rather than MCP tool-call
+    # strings). The Gateway never routes this port, so it does not exist outside
+    # the cluster; pod-to-pod reachability of the app container was always there -
+    # this names the trust boundary instead of hiding it.
+    - name: internal
+      port: 8001
+      targetPort: http

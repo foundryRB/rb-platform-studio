@@ -1,0 +1,412 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* The Vodafone brand face, licensed for Vodafone internal use: these surfaces are Vodafone's
+   own (the operator's ruling of 2026-09-07). The Vodafone Portugal Digital identity. */
+@font-face { font-family: "Vodafone"; src: url("/fonts/Vodafone-300.woff2") format("woff2"); font-weight: 300; font-style: normal; font-display: swap; }
+@font-face { font-family: "Vodafone"; src: url("/fonts/Vodafone-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Vodafone"; src: url("/fonts/Vodafone-500.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Vodafone"; src: url("/fonts/Vodafone-600.woff2") format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Vodafone"; src: url("/fonts/Vodafone-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: "Vodafone"; src: url("/fonts/Vodafone-800.woff2") format("woff2"); font-weight: 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 600; font-style: normal; font-display: swap; src: url("/fonts/JetBrainsMono-600.woff2") format("woff2"); }
+:root { --vfd-font: "Vodafone", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+/* Two deliberate themes driven by the html class (dark is the default; an
+   inline script in index.html applies the persisted choice before paint).
+   color-scheme stops the browser from force-darkening either theme. */
+@layer base {
+    :root {
+        color-scheme: light;
+        --background: 0 0% 94.9%;
+        --foreground: 210 8% 15.7%;
+        --card: 0 0% 100%;
+        --card-foreground: 210 8% 15.7%;
+        --primary: 0 100% 45.1%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 0 0% 94.9%;
+        --secondary-foreground: 210 8% 15.7%;
+        --muted: 0 0% 94.9%;
+        --muted-foreground: 195 3% 29.8%;
+        --accent: 0 0% 94.9%;
+        --accent-foreground: 210 8% 15.7%;
+        --destructive: 353 62% 41.8%;
+        --destructive-foreground: 0 0% 94.9%;
+        --border: 0 0% 74.5%;
+        --input: 0 0% 74.5%;
+        --ring: 188 100% 27.4%;
+        --link: 0 100% 38.4%;
+        --radius: 0.75rem;
+        --brand: 0 100% 45.1%;
+        --brand-ink: 0 0% 100%;
+    }
+    .dark {
+        color-scheme: dark;
+        --background: 230 43% 2.8%;
+        --foreground: 220 30% 96.1%;
+        --card: 222 23% 8.6%;
+        --card-foreground: 220 30% 96.1%;
+        --primary: 0 100% 45.1%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 223 24% 5.7%;
+        --secondary-foreground: 220 30% 96.1%;
+        --muted: 223 24% 5.7%;
+        --muted-foreground: 218 19% 80.2%;
+        --accent: 223 24% 5.7%;
+        --accent-foreground: 220 30% 96.1%;
+        --destructive: 358 100% 79.4%;
+        --destructive-foreground: 230 43% 2.8%;
+        --border: 220 15% 24.3%;
+        --input: 220 15% 24.3%;
+        --ring: 187 77% 60.2%;
+        --link: 0 100% 71%;
+        --brand: 0 100% 45.1%;
+        --brand-ink: 0 0% 100%;
+    }
+    * {
+        border-color: hsl(var(--border));
+    }
+    body {
+        background: hsl(var(--background));
+        color: hsl(var(--foreground));
+        font-family: var(--vfd-font);
+        isolation: isolate;
+    }
+    :focus-visible {
+        outline: 2px solid hsl(var(--ring));
+        outline-offset: 3px;
+    }
+}
+.app-frame {
+    width: calc(100% - 64px);
+    max-width: 1120px;
+    margin-inline: auto;
+}
+.app-header {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding-block: 24px;
+}
+.app-header nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.app-wordmark {
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.065em;
+}
+.app-wordmark span {
+    color: hsl(var(--brand));
+}
+.app-main {
+    padding-block: 32px 56px;
+}
+.app-main > div {
+    max-width: none;
+}
+.app-main h2 {
+    font-size: 28px;
+    font-weight: 650;
+    letter-spacing: -0.03em;
+}
+.app-main button.bg-primary {
+    background: hsl(var(--brand));
+    color: hsl(var(--brand-ink));
+}
+.app-atmosphere {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+    background:
+        radial-gradient(ellipse at 100% 15%, hsl(var(--brand) / 0.13), transparent 55%),
+        radial-gradient(ellipse at 0% 85%, hsl(var(--brand) / 0.08), transparent 50%);
+}
+.app-atmosphere svg {
+    position: absolute;
+    top: -10vh;
+    width: 28vw;
+    min-width: 170px;
+    height: 120vh;
+    overflow: visible;
+    fill: none;
+    stroke: hsl(var(--primary));
+    stroke-width: 1;
+    opacity: 0.28;
+    animation: app-flow 24s ease-in-out infinite alternate;
+}
+.app-atmosphere .left {
+    left: -11vw;
+    scale: -1 1;
+    animation-delay: -12s;
+}
+.app-atmosphere .right {
+    right: -11vw;
+}
+.app-atmosphere i {
+    position: absolute;
+    bottom: -8px;
+    width: 5px;
+    height: 5px;
+    border-radius: 45% 55%;
+    background: hsl(var(--brand));
+    box-shadow: 0 0 6px hsl(var(--brand) / 0.5);
+    opacity: 0;
+    animation: app-rise 20s linear infinite;
+}
+@keyframes app-flow {
+    to {
+        translate: 0 6vh;
+        rotate: 3deg;
+    }
+}
+@keyframes app-rise {
+    0% {
+        opacity: 0;
+        transform: translateY(0) scale(0.6);
+    }
+    15% {
+        opacity: 0.5;
+    }
+    65% {
+        opacity: 0.35;
+    }
+    100% {
+        opacity: 0;
+        transform: translate(16px, -85vh);
+    }
+}
+.app-atmosphere[data-paused='true'] * {
+    animation-play-state: paused;
+}
+@media (max-width: 760px) {
+    .app-frame {
+        width: calc(100% - 40px);
+    }
+    .app-header {
+        gap: 14px;
+        padding-block: 20px;
+    }
+    .app-header nav {
+        order: 3;
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+    .app-header nav button {
+        white-space: nowrap;
+    }
+    .app-main {
+        padding-top: 24px;
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .app-atmosphere * {
+        animation: none !important;
+    }
+}
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .app-atmosphere {
+        display: none;
+    }
+}
+@media print {
+    .app-atmosphere,
+    header {
+        display: none !important;
+    }
+    body {
+        background: white;
+        color: black;
+    }
+    .app-frame {
+        width: 100%;
+    }
+}
+.app-atmosphere i:nth-of-type(1) {
+    left: 3%;
+    animation-delay: 0s;
+    animation-duration: 14s;
+}
+.app-atmosphere i:nth-of-type(2) {
+    left: 85%;
+    animation-delay: -1.7s;
+    animation-duration: 16s;
+}
+.app-atmosphere i:nth-of-type(3) {
+    left: 17%;
+    animation-delay: -3.4s;
+    animation-duration: 18s;
+}
+.app-atmosphere i:nth-of-type(4) {
+    left: 80%;
+    animation-delay: -5.1s;
+    animation-duration: 20s;
+}
+.app-atmosphere i:nth-of-type(5) {
+    left: 12%;
+    animation-delay: -6.8s;
+    animation-duration: 22s;
+}
+.app-atmosphere i:nth-of-type(6) {
+    left: 94%;
+    animation-delay: -8.5s;
+    animation-duration: 24s;
+}
+.app-atmosphere i:nth-of-type(7) {
+    left: 7%;
+    animation-delay: -10.2s;
+    animation-duration: 26s;
+}
+.app-atmosphere i:nth-of-type(8) {
+    left: 89%;
+    animation-delay: -11.9s;
+    animation-duration: 14s;
+}
+.app-atmosphere i:nth-of-type(9) {
+    left: 21%;
+    animation-delay: -13.6s;
+    animation-duration: 16s;
+}
+.app-atmosphere i:nth-of-type(10) {
+    left: 84%;
+    animation-delay: -15.3s;
+    animation-duration: 18s;
+}
+.app-atmosphere i:nth-of-type(11) {
+    left: 16%;
+    animation-delay: -17s;
+    animation-duration: 20s;
+}
+.app-atmosphere i:nth-of-type(12) {
+    left: 79%;
+    animation-delay: -18.7s;
+    animation-duration: 22s;
+}
+.app-atmosphere i:nth-of-type(13) {
+    left: 11%;
+    animation-delay: -20.4s;
+    animation-duration: 24s;
+}
+.app-atmosphere i:nth-of-type(14) {
+    left: 93%;
+    animation-delay: -22.1s;
+    animation-duration: 26s;
+}
+.app-atmosphere i:nth-of-type(15) {
+    left: 6%;
+    animation-delay: -23.8s;
+    animation-duration: 14s;
+}
+.app-atmosphere i:nth-of-type(16) {
+    left: 88%;
+    animation-delay: -25.5s;
+    animation-duration: 16s;
+}
+
+/* IDENTITY STAGE: begin */
+/* ── The Digital Engineering stage over the shell's ambient element ─────────────
+   Dark: gradient, grids, vignette, three drifting glows, rising motes. Light: paper, the faint
+   light grid, solid red motes, a slow neutral light - alive, and never a red wash.
+   Source: design-systems/vodafone-digital-engineering/brand/stage_css.py render_field(). Platform Studio.
+   Appended after the shell's own rules, which stay as they are. Reduced motion and print stop it. */
+.app-atmosphere > * { display: none !important; }                      /* the shell's own streams, blobs, particles */
+.app-atmosphere {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; opacity: 1;
+  background:
+    radial-gradient(72% 72% at 50% 42%, rgba(0, 0, 0, 0) 55%, rgba(0, 0, 0, 0.55) 100%) 0 0 / cover no-repeat,
+    repeating-linear-gradient(rgba(255, 255, 255, 0.022) 0 1px, transparent 1px 4px) 0 0 / auto,
+    linear-gradient(to right, rgba(230, 0, 0, 0.13) 1px, transparent 1px) 0 0 / 160px 160px,
+    linear-gradient(to bottom, rgba(230, 0, 0, 0.13) 1px, transparent 1px) 0 0 / 160px 160px,
+    linear-gradient(to right, rgba(230, 0, 0, 0.07) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(to bottom, rgba(230, 0, 0, 0.07) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(160deg, #0b0d12 0%, #070910 55%, #04050a 100%) !important;
+}
+.app-atmosphere::before, .app-atmosphere::after { content: "" !important; display: block !important; position: fixed; pointer-events: none; z-index: -1;
+  filter: none !important; border-radius: 0; mask: none; }
+.app-atmosphere::before {
+  inset: -25vh -25vw; width: auto; height: auto;
+  background:
+    radial-gradient(closest-side, rgba(255, 59, 59, 0.30) 0%, rgba(230, 0, 0, 0.10) 55%, rgba(230, 0, 0, 0) 100%) 4vw -5vh / 81vw 95vh no-repeat,
+    radial-gradient(closest-side, rgba(27, 36, 54, 0.85) 0%, rgba(27, 36, 54, 0) 100%) 61vw 50vh / 94vw 105vh no-repeat,
+    radial-gradient(closest-side, rgba(230, 0, 0, 0.16) 0%, rgba(230, 0, 0, 0) 100%) 61vw 3vh / 69vw 75vh no-repeat !important;
+  will-change: transform;
+  animation: vfpt-drift-a 26s linear infinite !important;
+}
+.app-atmosphere::after {
+  inset: 0 auto auto 0; width: 2px; height: 2px; border-radius: 50%; background: none !important;
+  box-shadow:
+    2.8vw 81.0vh 0 0.55px rgba(255, 107, 107, 0.58),
+    13.7vw 82.1vh 0 0.11px rgba(255, 107, 107, 0.59),
+    24.9vw 90.5vh 0 0.06px rgba(255, 107, 107, 0.53),
+    33.3vw 91.2vh 0 0.42px rgba(255, 107, 107, 0.44),
+    47.7vw 97.6vh 0 0.39px rgba(255, 107, 107, 0.63),
+    54.9vw 58.6vh 0 0.32px rgba(255, 107, 107, 0.45),
+    65.7vw 67.9vh 0 0.02px rgba(255, 107, 107, 0.58),
+    77.4vw 92.5vh 0 0.31px rgba(255, 107, 107, 0.63),
+    88.3vw 85.2vh 0 0.27px rgba(255, 107, 107, 0.52),
+    10.1vw 96.9vh 0 0.54px rgba(255, 107, 107, 0.46),
+    19.4vw 75.4vh 0 0.32px rgba(255, 107, 107, 0.47),
+    28.4vw 76.2vh 0 0.13px rgba(255, 107, 107, 0.58),
+    38.3vw 61.5vh 0 0.43px rgba(255, 107, 107, 0.56),
+    51.1vw 88.1vh 0 0.22px rgba(255, 107, 107, 0.45),
+    62.9vw 82.2vh 0 0.39px rgba(255, 107, 107, 0.63),
+    74.3vw 72.9vh 0 0.46px rgba(255, 107, 107, 0.55),
+    83.3vw 85.1vh 0 0.19px rgba(255, 107, 107, 0.46),
+    93.6vw 87.4vh 0 0.35px rgba(255, 107, 107, 0.57);
+  opacity: 0;
+  will-change: transform, opacity;
+  animation: vfpt-rise 15s linear -4s infinite !important;
+}
+:root:not(.dark) .app-atmosphere {
+  background:
+    linear-gradient(to right, rgba(181, 0, 0, 0.07) 1px, transparent 1px) 0 0 / 160px 160px,
+    linear-gradient(to bottom, rgba(181, 0, 0, 0.07) 1px, transparent 1px) 0 0 / 160px 160px,
+    linear-gradient(to right, rgba(181, 0, 0, 0.035) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(to bottom, rgba(181, 0, 0, 0.035) 1px, transparent 1px) 0 0 / 40px 40px,
+    transparent !important;
+}
+:root:not(.dark) .app-atmosphere::before {
+  background:
+    radial-gradient(closest-side, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0) 100%) 8vw 0vh / 70vw 80vh no-repeat,
+    radial-gradient(closest-side, rgba(37, 40, 43, 0.055) 0%, rgba(37, 40, 43, 0) 100%) 58vw 46vh / 80vw 90vh no-repeat !important;
+  animation-duration: 48s !important;
+}
+:root:not(.dark) .app-atmosphere::after {
+  box-shadow:
+    2.8vw 81.0vh 0 0.55px rgba(230, 0, 0, 0.58),
+    13.7vw 82.1vh 0 0.11px rgba(230, 0, 0, 0.59),
+    24.9vw 90.5vh 0 0.06px rgba(230, 0, 0, 0.53),
+    33.3vw 91.2vh 0 0.42px rgba(230, 0, 0, 0.44),
+    47.7vw 97.6vh 0 0.39px rgba(230, 0, 0, 0.63),
+    54.9vw 58.6vh 0 0.32px rgba(230, 0, 0, 0.45),
+    65.7vw 67.9vh 0 0.02px rgba(230, 0, 0, 0.58),
+    77.4vw 92.5vh 0 0.31px rgba(230, 0, 0, 0.63),
+    88.3vw 85.2vh 0 0.27px rgba(230, 0, 0, 0.52),
+    10.1vw 96.9vh 0 0.54px rgba(230, 0, 0, 0.46),
+    19.4vw 75.4vh 0 0.32px rgba(230, 0, 0, 0.47),
+    28.4vw 76.2vh 0 0.13px rgba(230, 0, 0, 0.58),
+    38.3vw 61.5vh 0 0.43px rgba(230, 0, 0, 0.56),
+    51.1vw 88.1vh 0 0.22px rgba(230, 0, 0, 0.45),
+    62.9vw 82.2vh 0 0.39px rgba(230, 0, 0, 0.63),
+    74.3vw 72.9vh 0 0.46px rgba(230, 0, 0, 0.55),
+    83.3vw 85.1vh 0 0.19px rgba(230, 0, 0, 0.46),
+    93.6vw 87.4vh 0 0.35px rgba(230, 0, 0, 0.57);
+}
+@keyframes vfpt-drift-a { 0%, 100% { transform: translate(0, 0); } 33.33% { transform: translate(8.6vw, 8.7vh); } 66.67% { transform: translate(-3.9vw, 5.1vh); } }
+@keyframes vfpt-rise {
+  0%   { transform: translateY(0); opacity: 0; }
+  25%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { transform: translateY(-130px); opacity: 0; }
+}
+@media print { .app-atmosphere { display: none !important; } }
+@media (prefers-reduced-motion: reduce) { .app-atmosphere::before, .app-atmosphere::after { animation: none !important; } .app-atmosphere::after { opacity: .8; } }
+/* IDENTITY STAGE: end */

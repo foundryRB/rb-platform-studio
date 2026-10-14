@@ -1,0 +1,555 @@
+# Intent claims for platform-studio (CSD-INTENT-01 schema).
+# Attested by the pytest suite under studio-backend/tests/ and the vitest
+# suite under studio-frontend/; audit with `csd-intent .`.
+
+INT-GATE-001:
+  version: 1.0.0
+  status: active
+  statement: "An onboarding that fails the conformance gates MUST leave the platform checkout byte-identical: every touched file restored, no manifest created, no branch pushed, no pull request opened."
+  rationale: "The datastore is the cluster control plane; a half-applied onboarding is worse than none. Byte-identical rollback makes a rejected mutation indistinguishable from one never attempted."
+  test:
+    scope: integration
+    component: GatedChange
+    type: invariant
+  criticality: critical
+
+INT-GATE-002:
+  version: 2.0.0
+  status: active
+  statement: "A gate-passing onboarding MUST ship as one pull request on an onboard/<app> branch based on the install's deploy branch, and MUST NOT commit to the deploy branch directly."
+  rationale: "ArgoCD reconciles the install's deploy branch into the cluster (ADR-032), so the merge is the admission act: the platform repo's CI performs it (ADR-036), and the studio prepares the change but never takes the admission itself."
+  test:
+    scope: integration
+    component: GatedChange
+    type: invariant
+  criticality: critical
+
+INT-GATE-003:
+  version: 1.0.0
+  status: active
+  statement: "Onboarding MUST stay re-runnable after an abandoned attempt: a prior onboarding branch that is gone from the remote (its PR closed or merged) MUST NOT block a fresh onboarding of the same target. Only a branch still live on the remote signals a pending merge and rejects the re-run."
+  rationale: "The studio owns a long-lived checkout on a persistent volume, so a stale remote-tracking ref for a deleted branch outlives the branch itself. Keying the pending-onboarding check on that ref without pruning wedges every re-onboard of a target whose PR was closed-not-merged, and neither refresh nor a pod restart clears it. Re-runnability is what makes an abandoned attempt indistinguishable from one never made."
+  test:
+    scope: integration
+    component: GitPr
+    type: invariant
+  criticality: high
+
+INT-GATE-004:
+  version: 1.0.0
+  status: active
+  statement: "Publishing a gate-passing change MUST be atomic across both writes it makes: when the branch pushes but its pull request cannot be opened, the pushed branch MUST be deleted from the remote and the checkout restored, leaving the remote carrying no branch that no pull request tracks."
+  rationale: "The push and the pull-request call hit two systems, and the second fails on its own (a secondary rate limit, a transient 5xx, an unreachable API). A branch on the remote with no pull request is invisible to every read the studio offers while still tripping the pending-onboarding guard, so it wedges that target forever with no diagnosis. Atomic publishing means the gate's all-or-nothing promise survives the step that leaves the process."
+  test:
+    scope: integration
+    component: GitPr
+    type: invariant
+  criticality: critical
+
+INT-GATE-005:
+  version: 1.0.0
+  status: active
+  statement: "A change branch that no open pull request tracks MUST be cancellable from the studio's own surface, in both venues, clearing it from the remote so its target is re-runnable; the verb MUST refuse any branch outside the prefixes the gate prepares, and MUST refuse one an open pull request still tracks."
+  rationale: "Recovery that needs direct git access to the install repo is no recovery for the operator the studio exists to serve. The two guards are what make the verb safe to expose: the prefix check puts the install's deploy branch (the datastore ArgoCD reconciles, ADR-032) out of reach, and the open-pull-request check keeps a cancel from closing an in-flight change unmerged, which would lose it."
+  test:
+    scope: integration
+    component: CancelOnboarding
+    type: invariant
+  criticality: high
+
+INT-LIFECYCLE-001:
+  version: 2.0.0
+  status: active
+  statement: "A pause or resume toggle MUST write only the app's Application scale-to-zero override (spec.source.helm.valuesObject.<app>.paused) to teams/<app>/application.yaml and commit it directly to the install's deploy branch, with no conformance gate and no pull request; it MUST NOT open a branch or alter any other file, and MUST refuse to pause the studio's own app."
+  rationale: "Pausing scales an app to zero to free node capacity: an operational, reversible toggle, not an onboarding, so it admits no app and grants no hostname (the deliberate decisions INT-GATE-002 protects). It therefore rides the direct-commit fast path (ADR-008), scoped to the one narrow paused override so it never becomes a general install-side write channel; the studio still mutates only its own datastore (INT-SRP-001). Pausing the studio's own app would scale away the control plane that resumes it, so that toggle is refused."
+  test:
+    scope: integration
+    component: Lifecycle
+    type: invariant
+  criticality: high
+
+INT-LIFECYCLE-002:
+  version: 1.0.0
+  status: active
+  statement: "A freeze or resume promotion toggle MUST write only the app's Image Updater freeze tag filters - one `<alias>.ignore-tags: \"*\"` per alias the Application's image-list declares - to teams/<app>/application.yaml and commit it directly to the install's deploy branch, with no conformance gate and no pull request; it MUST NOT open a branch or alter any other file, MUST leave the bindings themselves (image-list, helm paths) intact so every promotion conformance row keeps running, and MUST restore the file byte-for-byte on resume. It MUST refuse rather than silently succeed on an Application declaring no image-list (nothing promotes it already) and on an alias already carrying an ignore-tags that is not the sentinel (an operator's own filter). The mode it toggles (auto / manual / none) MUST be reported apart from the paused status, since an app can be paused and still promoting, or running and frozen."
+  rationale: "Promotion is automatic by the platform's own decision (its ADR-022): Image Updater writes each new released tag into the app's deploy branch, so a push to main reaches prod with no hand. An operator sometimes needs the opposite for one app - hold it through an incident, a demo, or a migration - and that is an operational, reversible stance, not an admission decision, so it rides the same direct-commit carve-out as pause (ADR-008). The mechanism is the tag filter rather than removing the annotations, because Image Updater selects its working set on image-list: dropping the annotations does stop promotion, but it also takes the app out of the promotion conformance rows (shape, values-binding, released set) and out of the deploy-branch status read, which both key on those annotations - the app would stop promoting AND stop being watched for the silent never-promotes class those rows exist to catch. A tag filter of \"*\" leaves every binding in place and simply leaves no candidate tag. The sentinel is exact so the toggle never touches a filter an operator authored. Unlike pause, freezing the studio's own app is allowed: it holds the control plane on its current version rather than scaling it away, so it stays running and able to unfreeze itself."
+  test:
+    scope: integration
+    component: Lifecycle
+    type: invariant
+  criticality: high
+
+INT-LIFECYCLE-003:
+  version: 1.0.0
+  status: active
+  statement: "A lifecycle toggle's direct commit MUST start from the deploy branch's upstream head: the studio's clone is brought to it before the toggle reads or edits any file. The edit MUST be committed without stashing, leaving no stash behind, and rebased onto the new head when the branch moves again before the push. The toggle MUST refuse, leaving the remote deploy branch untouched and the clone on its upstream head, when that rebase conflicts or when a file it would commit carries git conflict markers or does not parse as YAML."
+  rationale: "The clone is long-lived and the deploy branch moves under it: the platform repo's CI merges the reconcile, onboarding and settings pull requests the studio opens. A resume_promotion run while the clone was behind a just-merged reconcile edited the stale file, reconciled with upstream through pull --autostash, conflicted on the stash pop, and committed and pushed teams/<app>/application.yaml carrying the markers, leaving the autostash entry behind. Starting from the upstream head removes the stale read, committing before rebasing removes the stash, and refusing on a conflict or an unparseable file means the remote takes a toggle whole or not at all: the direct commit has no gate behind it, so it must never be the step that breaks an Application ArgoCD reconciles."
+  test:
+    scope: integration
+    component: Lifecycle
+    type: invariant
+  criticality: critical
+
+INT-LIFECYCLE-004:
+  version: 1.0.0
+  status: active
+  statement: "A reconcile MUST carry the app's lifecycle toggles into the re-rendered Application as the branch it is based on carries them: an app whose promotion is manual MUST come out with the freeze tag filter on every alias the fresh declaration names, new ones included, and a paused app MUST come out paused, so the status read reports the same promotion mode and status after the reconcile as before it."
+  rationale: "Reconcile replaces application.yaml wholesale from the canonical template, which is neither frozen nor paused, so a frozen app reconciled through it was silently unfrozen on merge while the studio's last read still said manual, and a paused app would scale back up the same way. The toggles are the operator's standing decisions (ADR-008), not drift for a repair to undo. A new alias of a frozen app is frozen too, because manual means nothing promotes."
+  test:
+    scope: integration
+    component: ReconcileApp
+    type: invariant
+  criticality: high
+
+INT-SKELETON-001:
+  version: 5.0.0
+  status: active
+  statement: "A generated teams/<app>/ skeleton (namespace, Gateway, namespace-scoped RBAC, the GitOps Application, the docs HTTPRoute) MUST be rendered from the studio's own canonical templates (studio.domain.services.team_skeleton), fully tokenized on the install's facts (zone -> hostname, tunnel id -> external-dns target, operators -> RBAC subjects, install name -> the deploy-<install> branch the Application tracks); the templates' tokens and the renderer's substitutions MUST correspond exactly - no placeholder left unfilled, and no substitution for a placeholder the templates do not carry; it is NOT copied from a donor app, and no STUDIO_REFERENCE_APP is consulted. The set of files the skeleton renders (SKELETON_FILE_ORDER) and the set a capability grant may write (config/jobs/secrets/serviceaccount/grant-rbac, team_documents.GRANT_FILES) MUST be DISJOINT: reconcile re-renders every skeleton file wholesale, so a grant document routed into a skeleton file is deleted on the next reconcile of that app. The Application's repoURL MUST name the app's REPOSITORY under the fleet org, a fact separate from the app name (which is the namespace, the hostname label, the chart, and the GHCR packages) and defaulting to it: an app whose repository is named differently from itself MUST render a pointer at the repository that actually holds it, with no other rendered value following the repository."
+  rationale: "A string-mirror of a live donor's folder cannot produce a value the donor does not itself carry - most sharply the Application's targetRevision: deploy-<install>, which is this install's, not the donor's - so a second install onboarding off a first install's app would inherit the first's deploy branch, the same class of cross-install leak as anti-pattern 19. It also silently carries whatever the donor happens to have: a stale annotation, or an auth block a public app must not have. Rendering every skeleton file from one owned, install-keyed template makes each install-specific value come from the branch the studio serves, nothing hardcoded, and is the skeleton counterpart of the canonical grant templates (INT-GRANT-001/002): no part of a team folder is a copy of another app. The disjointness is stated because the earlier form of this claim enumerated the grant files as prose (config/jobs/secrets/serviceaccount) while the grants' Role and RoleBinding routed by kind into the skeleton's own rbac.yaml. Reconcile's promise that a grant survives it read as true and was not: reconciling solveos deleted the gen-pg-app-solveos Role and RoleBinding, tenants pruned them, and the wave-2 generator Job then ran as a ServiceAccount with no permissions and failed out its backoffLimit for hours (foundry-platform#100). An invariant stated over two named sets is checkable; one stated as a list of filenames in prose is a thing to remember. The token correspondence is stated in both directions because only one of them fails loudly: an unfilled placeholder ships a visibly broken manifest and the render refuses, while a substitution whose placeholder has left the templates renders nothing, reports nothing, and passes every suite that reads the output - which is how the tile facts (display, description, icon, group) went on being demanded of every caller after the manifest became the single source that renders them (ADR-032), and the GHCR owner after the image-updater annotations became a rendered block."
+  test:
+    scope: integration
+    component: TeamSkeleton
+    type: invariant
+  criticality: high
+
+INT-SKELETON-002:
+  version: 3.0.0
+  status: active
+  statement: "An onboarded app's homepage group MUST have exactly one source, its manifest role - 'parts' -> Foundry, 'output' -> Apps - which the platform chart reads directly to render the app's tile (ADR-032). A rendered teams/<app>/ skeleton MUST therefore carry no gethomepage.dev annotation at all, and the install conformance MUST hold any group annotation a folder still carries equal to its role's group (an app carrying none is exempt), so no second encoding of the group can contradict the manifest."
+  rationale: "The tile facts - display, description, icon, group - were once duplicated onto each app's routes.yaml, where a mirror-onboarded app inherited its donor's group verbatim and an output app sat under Foundry while every manifest-derived view (the docs Apps index, the Foundry Console Fleet) placed it under Apps. Making the manifest the datastore removed the duplication at its source rather than deriving the copy more carefully: the platform chart ranges over the manifest's parts and output blocks to build the two groups, so the role IS the group and the route has nothing to drift with. The conformance half stands because folders authored before that change still carry the annotation and homepage discovers annotated routes cluster-wide, so a stale mismatched group can still seat an app under a heading its role denies; for every skeleton the studio renders, the row holds vacuously."
+  test:
+    scope: integration
+    component: TeamSkeleton
+    type: invariant
+  criticality: medium
+
+INT-SCAFFOLD-001:
+  version: 1.0.0
+  status: active
+  statement: "Creating a templated app repository MUST be atomic: the repository and the walking-skeleton scaffold succeed together or neither survives. The repository MUST be created carrying an initial commit (auto-init), because the repo host's git-data API refuses a repository with no commits and a repository created empty therefore cannot be written through it at all; the scaffold MUST then land by UPDATING that default branch's existing ref, parented on its head, never by creating one and never by force. A seed that cannot land MUST delete the repository it created and say so; when the deletion is itself refused, the refusal MUST name the surviving empty repository and the hand needed, never read as a clean rollback. The deploy-<install> branch is the one non-atomic leg - derived state a later onboard_app can stand up - so its failure is logged and the scaffold still counts."
+  rationale: "A repo created and then left unseeded is the one broken state no caller can detect from outside: it exists, it is named right, it carries a description, and it reads to every downstream step as an ordinary new app. proxiverso shipped exactly that - the repository was created, the git-data tree write answered 409 (\"Git Repository is empty\") because auto-init was off, the use case raised, the console swallowed it, and the delivery ran on a repo holding nothing but its .delivery/ scratch, with the missing contract due to surface at build-and-ship. Auto-init is what makes the write legal at all; updating the ref rather than creating it is what matches the postcondition auto-init leaves; and rolling the repository back is what keeps a partial failure from being indistinguishable from success. The orphan-branch leg keeps its opposite precondition (history present, ref absent) for the deploy branches, so the two writes cannot be swapped silently."
+  test:
+    scope: integration
+    component: CreateAppRepo
+    type: invariant
+  criticality: high
+
+INT-SCAFFOLD-002:
+  version: 1.0.0
+  status: active
+  statement: "Every caller-supplied string the walking-skeleton scaffold renders - the display name and the description - MUST be emitted in the form its target file's syntax reads back as that same string: a double-quoted scalar in YAML (k8s/Chart.yaml, the docs page frontmatter), a string literal in JavaScript (docs/astro.config.mjs), escaped text in HTML (app/index.html), and prose only where the target is prose (README.md, the docs page body). The substitution MUST be one pass over each template, so a placeholder appearing in the caller's own words is rendered, not substituted again."
+  rationale: "A description is free English and free English carries the characters those syntaxes read structurally. ucn-helper was scaffolded with \"A companion for ...: roster, routes, and the maths\" and its own first CI run was red: the colon-space made k8s/Chart.yaml's description a mapping where a scalar belonged, and the docs-deployment check that parses the chart raised yaml.scanner.ScannerError, which had to be hand-patched out of a repository the studio had just created. That is precisely the outcome create_app_repo exists to rule out (ADR-012: a repo green in its own CI from the first push), and the same two strings reach four different syntaxes, so quoting only the file that broke would leave the identical defect standing in the other three - the claim is over the render, not over one file."
+  test:
+    scope: integration
+    component: AppRepoScaffold
+    type: invariant
+  criticality: high
+
+INT-SCAFFOLD-003:
+  version: 1.0.0
+  status: active
+  statement: "A repository as create_app_repo renders it, onboarded onto an install whose team folder and deploy branch are the studio's own renders of the same declaration, MUST pass every row of the onboarding conformance suite in the act venue: no row for that app may fail, and none may report skipped, since every leg the rows read is one of those renders."
+  rationale: "The scaffold, the deploy-branch renderer, the team skeleton and the gate are four surfaces of one contract, and each is tested against its own idea of that contract, so nothing catches the case where two of them disagree. They did: the scaffold emits an auth.oidc block carrying an empty issuer with the sidecar off, the gate held every declared auth.oidc.issuer to a per-install pin (INT-FOUNDRY-046), and the deploy-branch renderer deliberately writes no issuer until a realm is granted - so onboard_app categorically refused every repo born from the current template and rolled back, first hit live on discord-warden (2026-08-16). A per-surface test cannot see that; only rendering all four and running the real gate over them can, which is what this claim pins."
+  test:
+    scope: integration
+    component: InstallConformanceRunner
+    type: invariant
+  criticality: high
+
+INT-PROMOTE-001:
+  version: 1.1.0
+  status: active
+  statement: "The rendered Application MUST carry one ArgoCD Image Updater alias per image the app releases, from the onboarding's image-component list: with no components, the package <app> bound to <app>.image.{repository,tag}; with components, per component the package <app>-<component> bound to <app>.images.<component>.{repository,tag}. Component names MUST be unique lowercase labels, and a lone 'app' component list is refused (it is the single-image shape, declared as no components; the alias 'app' among several components is valid); anything else refuses the onboarding."
+  rationale: "Image Updater promotes by watching the image-list packages and git-writing each alias's helm values paths into the deploy branch's prod values, so a binding is only as real as both legs: a single-image alias rendered for a multi-image app watches a package CI never publishes and writes a path the chart never reads, and every release then sits unpromoted with no crash and no red status (alexandria released alexandria-server/-client/-docs with tags at alexandria.images.<component>.tag while one alias watched the unreleased package alexandria and wrote alexandria.image.tag). Rendering the aliases from the declared component list makes the binding correct by construction, in the one canonical shape the fleet's multi-image contract names."
+  test:
+    scope: integration
+    component: TeamSkeleton
+    type: invariant
+  criticality: high
+
+INT-PROMOTE-002:
+  version: 2.0.0
+  status: active
+  statement: "The install conformance MUST hold every Application's Image Updater annotations to the canonical binding shape the skeleton renders - a single released image as the alias app watching the package <app> and writing <app>.image.{repository,tag}; several released images as one alias per component, each watching <app>-<component> and writing <app>.images.<component>.{repository,tag}; the image-list parsing with unique aliases, every watched package under the app repo's GHCR owner, no alias-scoped annotation outside the image-list - and, when the app's deploy-branch values are readable, MUST hold the bindings against those values in both directions: every bound tag path exists in the values, and every image tag the values carry is bound by an alias. Unreadable deploy values MUST report the values row skipped, never passed."
+  rationale: "A mismatched binding does not crash and shows no red status: Image Updater simply finds nothing to do, and the app pins its first tag forever while CI keeps releasing. Validating both directions against the deploy branch's prod values (CI seeds them; write-back targets them) turns that silent never-promotes state into a failing conformance row the onboarding gate and every conformance run surface. The shape half is strict on the one canonical layout the studio renders, because the install carries one binding shape rendered and gated by the same system: a bespoke layout that still promotes today is drift that breaks the next hand's edit-by-analogy and every tool that reasons about the fleet, and it reads as a red shape row while its values row stays green - shape drift and broken promotion are two different findings. The deploy branch is team-owned and legitimately absent at onboarding time, so an unreadable values file reports skipped - honest, and distinguishable from verified."
+  test:
+    scope: integration
+    component: InstallConformance
+    type: invariant
+  criticality: high
+
+INT-PROMOTE-003:
+  version: 1.0.0
+  status: active
+  statement: "The install conformance MUST hold every promoting Application's Image Updater image-list to the set of images the app repo's CI actually publishes, read off the repo host from the repo's default branch: the devops/docker-compose.yml build: services (each named by its image: basename, the service name when no image: is set) plus the docs image <app>-docs when docs/Dockerfile exists. An alias watching a package outside that set MUST fail the row (a phantom binding that promotes nothing), and a released package no alias watches MUST fail the row (an image that never promotes). An unreadable repo or compose MUST report the row skipped, never passed."
+  rationale: "The values-bound half judges the bindings against the deploy branch's prod values, and the two can agree while both are wrong: an alias watching a package CI never publishes, writing a values path the values duly carry, passes the shape and values rows and still promotes nothing, because nothing ties the watched packages to what the repo actually releases. The compose file is the repo's single source of truth for the images CI builds (one build: service per image, named by its image:), and CI publishes the docs site as <app>-docs from docs/Dockerfile, so the released set is derivable from the app repo alone and the image-list is held to it in both directions at onboarding time and on every conformance run. The app repo is team-owned, so an unreadable repo or compose reports skipped - honest, and distinguishable from verified. The platform's INT-FOUNDRY-058 is this claim's installed-state twin, read over the sibling clones."
+  test:
+    scope: integration
+    component: InstallConformance
+    type: invariant
+  criticality: high
+
+INT-PROMOTE-004:
+  version: 1.0.0
+  status: active
+  statement: "A failing Image Updater conformance row - the shape row, the values-bound row, the released-set row - MUST carry the specific mismatch as the row's detail rather than its outcome alone, and the conformance report's output MUST render each row's detail beside its outcome. The released-set row's detail MUST also name the set it derived and where it derived it from (the app repo's devops/docker-compose.yml build: services plus <app>-docs when docs/Dockerfile exists), on every failure of that row."
+  rationale: "The gate's rejection message prints the new failures and the report output, so a row reporting nothing but its node ID sends the caller off to rediscover by hand a mismatch the check already computed and then discarded. Onboarding vf-library onto the psa install failed the released-set row twice for a missing docs image, and the caller found it only by listing GHCR packages and comparing publish timestamps - an investigation into a source this check never reads, which also turned up a stale pre-split package that could only have misled. Naming the derived set with its provenance is what makes the row self-diagnosing: the docs image is never a compose build: service, so a caller working from the compose-is-the-manifest rule alone under-counts every app that ships docs/, and the failing row is the one place both halves of the rule meet."
+  test:
+    scope: integration
+    component: InstallConformance
+    type: invariant
+  criticality: medium
+
+INT-PROMOTE-005:
+  version: 1.0.0
+  status: active
+  statement: "The install conformance suite MUST run in two venues from one runner: the standing venue (run_conformance, conformance_report, the status read) MUST emit only rows over surfaces the install itself owns and MUST NOT emit the cross-repo promotion agreement rows (image-updater-promotes, image-updater-released-set) or the docs-image row, so an app repo growing its released set can never fail the standing report; the act venue (the gate inside onboard_app, reconcile_app, and offboard_app) MUST emit those rows, strictly, because the act is the one moment the caller can resolve them. The same armed source MUST yield a green standing report and a red act report over the same drifted app, by construction."
+  rationale: "shoot4fun added docs/Dockerfile a day after onboarding and the install's standing report went red for a state only the app-side change had caused and only a platform act could resolve: the failure landed on the desk that changed nothing, and while red it would have blocked every other app's onboarding PR. The interim state between an app-side change and its reconcile_app is intended, not broken, so nothing standing may fail on it; the drift brake moved to the causer's own CI (the shared workflow's reconcile check), the act gates keep the strict agreement where it is resolvable, and the status read stays an observer that diagnoses without failing."
+  test:
+    scope: integration
+    component: InstallConformance
+    type: invariant
+  criticality: high
+
+INT-DELIVERY-001:
+  version: 2.3.0
+  status: active
+  statement: "The install conformance MUST judge each app's team-side delivery pipeline over the repo host, with no clone: the app repo's .github/workflows/build.yml on its default branch MUST call the shared ci reusable workflow (<owner>/<ci repo>/.github/workflows/build.yml, the platform's INT-FOUNDRY-013; the repository carrying it is the organisation's to name, so the row pins the owner and the workflow path, never the repository's name), and the branch the rendered Application reconciles (deploy-<install>) MUST carry dev/values.yaml, dev/Chart.yaml, prod/values.yaml, and prod/Chart.yaml (INT-FOUNDRY-020). A leg that is readable and wrong MUST report failed - a new per-app row, so the onboarding gate refuses the PR - and a leg that cannot be read (repo not granted to the token, deploy branch not stood up yet) MUST report skipped, never passed. Admission is strict on the skips: an onboarding whose candidate report carries a skipped app-side leg for the app (the CI caller, the deploy branch, the Image Updater values binding, the released-set binding) MUST be refused and rolled back byte-identical, naming each skipped leg, what makes it readable, and the waiver; only the explicit allow_bootstrap waiver admits it (the deliberate walking-skeleton bootstrap), and the shipped PR body MUST then record the waiver and name every skipped row as pending verification. The repository every app-side leg reads through MUST be judged on its own row: a host answering that the repository is not there for the studio (no such repository under that owner, or one the token is not granted) MUST report failed, naming the repository and the app; an answer that proves nothing (host unreachable, credentials rejected, no repo source wired) MUST report skipped. That row MUST carry the repository it read, so a refusal names the one artifact that would not answer rather than the four legs that read through it."
+  rationale: "2ez4tv onboarded with the whole suite green while the app could not possibly ship: its build.yml was a hand-rolled lint workflow that never called the shared reusable workflow, so no image or chart ever reached GHCR, and the install's deploy branch did not exist in the app repo, so the rendered Application had nothing to reconcile. Both rules exist as platform-side checks, but neither is reachable when the gate needs them: the in-CI audit runs only in repos that already call the shared workflow (circular), and the platform-side pytest run skips repos not checked out as sibling clones. Reading both legs off the repo host at conformance time puts them in front of the onboarding gate and every run_conformance call. A skipped leg is honest (never passed), but admitting it by default ships an app whose entire team side is unverified and parks the merged Application in ComparisonError until the app repo catches up; refusing skips by default forces the artifacts-first ordering, while the explicit allow_bootstrap waiver keeps the deliberate walking-skeleton bootstrap possible with the waiver recorded on the PR trail, so absent-but-required can neither read as green nor slip through unnamed."
+  test:
+    scope: integration
+    component: InstallConformance
+    type: invariant
+  criticality: critical
+
+INT-STATUS-001:
+  version: 1.1.1
+  status: active
+  statement: "app_status MUST report the delivery evidence chain as typed links - onboarded, onboarding_pr, app_repo (the app-side conformance legs), ci (the latest completed run on the app repo's default branch, whose success conclusion is the CI-green plus artifacts-published proxy), promotion (the deploy branch's pinned chart, each bound image tag's current value, and the last write-back commit), probe (a cache-busted HTTPS GET of the app hostname), identity_caveat - each ok, failed, or skipped, where skipped always names the reason the link could not be evaluated. It MUST NOT raise on a half-onboarded app or an unreachable host: every link degrades to skipped or failed with a reason. The probe MUST read 200 as serving, 302/401 as serving only when the app holds an identity grant, a 401 from an app holding no identity grant as serving only when that app's /api/health answers 200 (with no 200 from the health route the 401 stays failed), and no response as failed. The derived stage MUST read serving only when promotion and probe are both ok, and an app with an identity grant MUST carry identity_caveat skipped: an edge 302/401 does not prove the OIDC login round-trip, so an identity-gated app can never read fully green while its sign-in is unverified."
+  rationale: "A delivery run proves live by an evidence chain - CI green, artifacts published, promotion visible in git, the app serving at its public hostname - and assembling that chain by hand from prose invites improvisation: six ad-hoc checks, each an opportunity to misread, skip, or fabricate a leg. One read-only tool reporting every link typed lets a run poll one surface and trust the verdicts. Honest degradation (skipped with the reason) keeps a half-onboarded app answerable instead of crashing the read, and the always-skipped identity caveat blocks the one false-green the probe alone would produce: mistaking an auth proxy's 302 for a working login. Application health and the OIDC round-trip stay outside the chain by design: the studio observes delivery externally (git, the repo host, the edge), never through a reconciler's API, so the read stays uncoupled from whatever runs the cluster. v1.1 adds the app that gates its own callers: an API-keyed app with no identity grant answers 401 on every path, the root included, so the rule as first written read it promoted forever while it served (platform-studio#45). Its health route answering 200 without a credential is the proof it serves; a 302 without a grant stays failed, because an unexpected redirect is not that app's signature."
+  test:
+    scope: integration
+    component: AppStatus
+    type: invariant
+  criticality: high
+
+INT-STATUS-002:
+  version: 1.0.0
+  status: active
+  statement: "app_status MUST carry a smoke link reporting the app's in-cluster deployed-smoke verdict, read over the edge from the platform's smoke reporter at https://docs.<zone>/smoke/<app>.json (ADR-047) and never through a cluster API. A 200 whose result.json parses with status passed MUST read ok, naming the tested tag beside the promoted tag and reporting rather than failing a mismatch; status failed MUST read failed with the counts the result carries; a 200 that does not parse as the contract MUST read failed, because unreadable published evidence is a defect, not an absence. A 404 MUST read skipped naming the contract as optional, and a reporter that does not answer or answers any other status MUST read skipped naming the reason: platform trouble is never app evidence. The smoke link MUST stay outside the stage derivation."
+  rationale: "The probe proves reachability, never behavior: nothing signs in and exercises a real read against production. The behavioral proof needs a credential, credentials live cluster-side by design, and every path that moves one out of the cluster is a standing credential-movement primitive (an Actions secret needs a human, which parked an unattended moments-app build+ship at nine of ten evidence items; an agent-held credential is an exfiltration primitive; runner RBAC leaks to every repo sharing the pool). ADR-047 keeps the credential in-cluster and moves only the verdict, and this link is where a delivery run reads it: one typed surface instead of an improvised probe of the reporter. The asymmetry between failed and skipped is the point - a malformed published verdict fails loudly because the app owns its contract, while a missing result or a dark reporter skips honestly because absence and platform trouble prove nothing about the app. Advisory keeps serving derivable for the majority of apps that predate the contract."
+  test:
+    scope: integration
+    component: AppStatus
+    type: invariant
+  criticality: high
+
+INT-EVENTS-001:
+  version: 1.0.0
+  status: active
+  statement: "Publishing an event MUST NOT change the act that caused it. With the event transport unreachable, every act that would publish MUST complete with the same outcome, the same response, and the same durable state as it does with the transport up, and each dropped publish MUST be logged at warning. A publish MUST NOT be retried inside the caller's latency budget, queued into unbounded memory, or surfaced to the caller as an error, and no readiness probe, health check, or startup path may depend on the transport. Every published event MUST be a CloudEvent whose type is one registered row of the studio's own domain, never composed at the call site."
+  rationale: "REF-Events section 6 states this as the rule every producer attests, and this studio is the first one, so it is also the reference implementation. The failure it prevents is concrete and was named in the REF before any bus existed: a studio whose onboarding fails because a broker is down. That is a real risk here rather than a theoretical one, because the acts that publish are every act that changes what an install runs, beginning with the two the platform most needs to keep working (admitting an app, and reporting a conformance verdict), and because a bus that is safe to have down is exactly the kind of dependency that quietly becomes load-bearing. The guarantee is enforced at the call site (state_fact) rather than assumed of the adapter: a publisher is contractually forbidden from raising, but a caller trusting that contract and being wrong would fail an act it had already committed, so the one line that could do the damage is the one line that catches. The envelope is checked in the same claim because a consumer's dedupe key (id), its filter (subject), and its provenance check (source) are what make at-least-once delivery survivable, and a type composed at a call site is unregistrable and so unconsumable."
+  test:
+    scope: integration
+    component: EventPublisher
+    type: behavior
+  criticality: high
+
+INT-GRANT-001:
+  version: 1.0.0
+  status: active
+  statement: "The database provisioning Job MUST be rendered from the studio's own canonical template (studio.domain.services.database_grant), fully <app>-tokenized, and validated isolation-clean (a per-app pg-app-<app> credential name and the PG16 `GRANT <app> TO CURRENT_USER WITH SET TRUE` self-grant, with no placeholder left) before it is appended; it is NOT mirrored from a live reference app."
+  rationale: "A provisioning Job's isolation invariants (per-app credential name, SET-role self-grant, ownership, connect lockdown) are not a function of the app name, so copying a live app's Job and substituting the name cannot guarantee them: it carries them only when the reference is already clean and silently drops them otherwise. Pointing the old STUDIO_REFERENCE_DB_APP at solveos (the first onboarded database app, which legitimately owns the bare pg-app name and predated the SET-role grant) reproduced both bugs in every mirror (sabbito-bazarrito#7). Rendering from one owned, tokenized template - the capability-grant counterpart of the skeleton templates in INT-SKELETON-001 - makes the grant correct by construction; the platform's isolation suite (INT-FOUNDRY-014..041) gates whatever it renders."
+  test:
+    scope: integration
+    component: DatabaseGrant
+    type: invariant
+  criticality: high
+
+INT-GRANT-002:
+  version: 2.0.0
+  status: active
+  statement: "The Keycloak realm blocks (the realm ConfigMap and its provisioning Job) MUST be rendered from the studio's own canonical template (studio.domain.services.identity_grant), fully <app>- and <host>-tokenized, and validated isolation-clean (a realm and OIDC client named for the app, the app credential sourced from the app-owned keycloak-<app> Secret, no credential-bearing field of any rendered identity provider carrying a value rather than an $(env:...) substitution, no placeholder left) before they are appended; they are NOT mirrored from a live reference app."
+  rationale: "A realm is the app's own isolation boundary; its correctness (a realm named for the app, a realm-scoped admin, the OIDC client, the app credential from the app-owned keycloak-<app> Secret) is not a function of any other app. Copying a live app's realm and substituting the name carries those invariants only when the reference is already clean - the same failure a STUDIO_REFERENCE_DB_APP pointed at solveos produced for databases (sabbito-bazarrito#7). Rendering from one owned, tokenized template, the identity counterpart of INT-GRANT-001, makes the grant correct by construction; the platform's identity isolation suite gates whatever it renders. v2 adds the credential clause with the install-declared brokers of ADR-045: the realm ConfigMap is committed to the deploy branch in the clear, and a declaration is data an operator writes, so a credential typed into a broker's own config would land in git with nothing else to catch it. It is provider-blind on purpose - it asks what a value is, never who the provider is - because the platform no longer knows which providers an install declares."
+  test:
+    scope: integration
+    component: IdentityGrant
+    type: invariant
+  criticality: high
+
+INT-GRANT-003:
+  version: 1.0.0
+  status: active
+  statement: "A database or identity grant MUST include the studio-rendered generate-if-absent credential Job (gen-pg-app-<app> / gen-keycloak-<app>) from the studio's canonical template, validated self-consistent (existence-guarded creation so a re-run never rotates, a per-app credential name, reflection converged on every run into exactly the consuming namespace, no reflector annotation on an in-place secret), appended in the same gated change as the provisioning blocks. The platform never holds, reads, or writes the generated value."
+  rationale: "The per-app credential was historically generated by the app's own repo and applied by hand, the one step an autonomous delivery (an Argo Workflow with no local shell) cannot perform. Minting it in-cluster, generate-if-absent, in the same grant that renders the consuming provisioning Job makes onboarding self-sufficient end to end while keeping every value out of git and out of the platform's hands; the convergent annotation pass means a Job that died between create and annotate heals on the next sync instead of stranding a credential the provisioning Job would wait on forever (ADR-034)."
+  test:
+    scope: integration
+    component: SecretGenerator
+    type: invariant
+  criticality: critical
+
+INT-GRANT-006:
+  version: 1.0.0
+  status: active
+  statement: "An events grant MUST be rendered from the studio's canonical template and validated self-consistent before it is returned: the app's nkey seed secret (nats-<app>) carries no reflector annotation of any kind and its creation is existence-guarded, only the derived public key (nats-<app>-pub) reflects and into exactly the messaging namespace, the signed JWT (nats-jwt-<app>) reflects back into exactly the app's namespace, the signing material (nats-events-signer) is mounted by the signing Job and by nothing else, and the signed publish scope is the app's declared REF-Events domains plus the one shared stream's JetStream API, never the whole $JS.API surface. A grant MUST declare at least one domain, refused before any branch is prepared."
+  rationale: "This grant inverts the credential direction the other two use, and every one of its safety properties lives in that inversion. An nkey is a keypair, so the app mints its own seed and publishes only the public half, and the platform signs an assertion about a key it has never seen: strictly tighter than the database and realm grants, where a platform-side Job reads a reflected app password. The whole benefit evaporates on a one-line slip. Annotating the seed secret instead of the public one would reflect the private key into a shared namespace; putting both halves in one secret would do the same; mounting the signer material into the app's namespace would hand a tenant the authority to mint any user in the account. None of those is visible in review as anything but a plausible-looking YAML block, which is why they are held by construction here rather than by care. The publish scope is checked in the same breath because it is the property the server actually enforces per message: a grant that reached for $JS.API.> would hand an app the whole JetStream control plane while still looking scoped. The empty-domain refusal is pre-branch for the reason the settings no-op refusal is: the alternative is an empty pull request against the install's deploy branch for a grant that scoped nothing. Distinct from INT-GRANT-003, which holds the /dev/urandom password generators; an nkey mint rightly fails that shape."
+  test:
+    scope: integration
+    component: EventsGrant
+    type: invariant
+  criticality: critical
+
+INT-GRANT-004:
+  version: 1.1.0
+  status: active
+  statement: "The install conformance MUST hold every app's chart to the install's credential grants: when the app repo's k8s/values.yaml is readable off the repo host, each platform-minted credential it names as a Secret-naming value (keycloak-<app>, pg-app-<app>, nats-<app>) MUST have the matching generator (gen-keycloak-<app>, gen-pg-app-<app>, gen-nats-<app>) in that install's teams/<app>/ folder. An unreadable chart MUST report the row skipped, never passed. The row MUST be advisory to the onboarding gate - reported in the pull-request body when it fails, never refusing the change - and MUST surface as its own link in the app's status chain."
+  rationale: "A chart naming a credential no grant mints schedules a pod that waits forever on a Secret nothing will ever create. Nothing goes red on the way there: the values parse, the templates render, the release publishes, and the failure surfaces days later as CreateContainerConfigError on the cluster - task-api shipped exactly that and sat broken for 12+ hours. Neither half's own CI can see it: the app's runner checks out no platform repo and holds no credential to fetch one, and the platform's runner checks out no app repo. The studio is the one place both halves are in reach - it serves the install's deploy branch and reads app repos over the repo host - which is what makes the cross-check runnable at all. It is advisory rather than admission-gating because the grant it asks for is rendered into teams/<app>/, which onboard_app must create first while onboard_identity and onboard_database refuse an app the manifest does not yet carry: admitting on it would deadlock every app whose chart already reads a platform-minted Secret. The status chain is therefore where a failing row is acted on, and it sits immediately before the probe link because it is the standing explanation for a hostname that does not answer."
+  test:
+    scope: integration
+    component: InstallConformance
+    type: invariant
+  criticality: high
+
+INT-GRANT-005:
+  version: 2.0.0
+  status: active
+  statement: "The identity grant's provisioning Job MUST apply clients, identity providers, identity-provider mappers and authentication flows no-delete (IMPORT_MANAGED_CLIENT, IMPORT_MANAGED_IDENTITYPROVIDER, IMPORT_MANAGED_IDENTITYPROVIDERMAPPER, IMPORT_MANAGED_AUTHENTICATIONFLOW), so a re-apply converges what the grant declares and leaves every client, provider and flow the app declares in its own chart standing. The grant's own client MUST be confidential and carry no webOrigins."
+  rationale: "keycloak-config-cli full-manages every resource type by default, though only alongside its remote state (import.remote-state.enabled, default true and left on here), which scopes purging to resources it created itself. These four settings say the ownership line structurally rather than leaving it contingent on that realm attribute outliving the realm: the grant converges what it declares and deletes nothing else, full stop. The defect that bought the client half is the reason the guarantee is worth making unconditional - an app with a second OIDC flow (an SPA's own PKCE, a native shell's RFC 8252 loopback) had no durable path at all, because onboard_identity refuses once the realm exists, reconcile_app never touches grant files, and a console edit looked revertible by the same managed apply; Alexandria's desktop sign-in sat blocked across ten Build+Ship attempts on it (foundry-platform#123). v2 extends the same line to brokering with ADR-045: the install declares the default brokers and the grant converges those, while a team's own provider, its mappers and its first-login flow are declared in the app's own chart and applied as its realm-scoped <app>-admin, which cannot reach another realm. Isolation is therefore structural, needing no new studio verb and no review gate. The webOrigins clause is the same defect's tell: a CORS grant on a server-side confidential client is meaningless, and its presence is what made a browser flow look supported on a client whose publicClient: false forbids one."
+  test:
+    scope: integration
+    component: IdentityGrant
+    type: invariant
+  criticality: high
+
+INT-GRANT-008:
+  version: 1.0.0
+  status: active
+  statement: "The identity grant MUST render exactly the default brokers the install declares on its deploy branch (values.yaml defaultBrokers), each against the alias, provider id and Secret that declaration names: zero declared MUST render no identityProviders block, no allowlist flow and no broker credential in the Job, and N declared MUST render N providers. Every rendered provider MUST broker existing users only, pointing at the allowlist flow whose executions are idp-detect-existing-broker-user then idp-auto-link and never idp-create-user-if-unique. A declaration whose alias or providerId is not a plain identifier, whose secretRef is not a Kubernetes object name, or whose alias repeats another's MUST be refused rather than rendered."
+  rationale: "The template used to hardcode one google provider wired to a keycloak-google Secret, which made brokering mandatory in practice (an install seeded without that Secret got realms whose provisioning Job had nothing to substitute) and singular by construction. Naming the secret for a role instead would have removed the vendor and kept the cardinality; the platform's business is neither, so the declaration is data and the template writes down no vendor, no secret name and no count (ADR-045). An install brokering Entra, five providers, or none at all is then a values change on its own branch rather than a change to this code, which is what the enterprise identity path of foundry-platform#155 needs. The allowlist clause is the shape of the default the install declares and lives here rather than in the install conformance suite for a precise reason: after the grant a realm's providers are the team's, so an install-side check keyed on brokering would police an access decision that is the team's to make - it was INT-FOUNDRY-038 and is retired there. The refusals are not tidiness: alias and providerId land unquoted in the realm YAML and the alias also becomes an env-var stem, so a declaration carrying a space or a newline renders YAML that is broken or, worse, parses into something else, and a repeated alias silently collides on both the realm key and the env stem."
+  test:
+    scope: integration
+    component: IdentityGrant
+    type: invariant
+  criticality: high
+
+INT-GRANT-009:
+  version: 1.0.0
+  status: active
+  statement: "When the install names a Keycloak login theme (values.yaml identity.loginTheme.name), the identity grant MUST render it into the realm as loginTheme, and MUST render none when the install names none."
+  rationale: "The sign-in pages are the one platform surface a customer's people meet by name. The chart mounts the install's theme into Keycloak (foundry-platform #244); a realm that does not name it keeps Keycloak's own look, so a branded install needs every realm the studio renders to carry the name, and an install that names none must not inherit one."
+  test:
+    scope: integration
+    component: identity_grant
+    type: invariant
+  criticality: medium
+
+INT-GRANT-010:
+  version: 1.0.0
+  status: active
+  statement: "The studio MUST be able to re-render an app's existing identity grant from the current canonical template and the install's current declaration (values.yaml defaultBrokers and identity.loginTheme.name), replacing exactly the grant's own documents (the keycloak-realm-<app> ConfigMap and the keycloak-<app>-provision Job) in place in the concern files that carry them, so that every other document in teams/<app>/ (the gen-keycloak-<app> generator and its ServiceAccount and RBAC, the other grants) and every other byte of those files is unchanged, and the re-rendered documents are byte-identical to a fresh onboarding's for the same declaration. Every user the branch admitted to the realm (any users entry other than the realm admin) MUST be carried across verbatim; every other realm key is the template's. A re-render of a grant the branch already carries byte-for-byte MUST be refused before any branch is prepared, and a re-render of an app that holds no realm MUST be refused. It MUST ship as a pull request on the onboarding's gate-validate-rollback path, whose body says what changed and why and names, as the operator's step, the callback URL to register for each broker alias the realm did not previously carry."
+  rationale: "ADR-045 made brokering data and said a realm already rendered carries what it was rendered with until that app is reconciled - and nothing reconciled it: onboard_identity refuses an app whose realm exists, reconcile_app re-renders the skeleton and deliberately leaves every grant file alone, and INT-GRANT-007 is a read on purpose. An install that declared a default broker after granting six realms, or named a login theme, had a studio that could report every realm out of date and repair none of them, which left the hand edit as the only path and a hand-applied provider on each realm as its result. The repair is scoped by the two defects the read was scoped around: reconcile once rewrote a file wholesale and took a live generator's Role and RoleBinding out from under it (foundry-platform#100), so this replaces documents by kind and name and never a file; and normalising the fleet against the template once proposed deleting an admitted operator from two live realms, so the users list - the access allowlist, which a render keyed on the app name cannot know - is carried, not compared. Byte-identity with a fresh onboarding is what makes the verb trustworthy: there is one renderer, and a reconciled realm is indistinguishable from one granted today. The pre-branch refusal on a current grant is the settings write's no-op rule (INT-GRANT-006): the alternative is an empty pull request against the install's deploy branch, and a sweep over every realm needs to open one only where something changed. The callback registration is outside git entirely, which is why it is named rather than performed, and only for a new alias, because the alias fixes the callback path and an alias already brokered was registered when it first was."
+  test:
+    scope: integration
+    component: ReconcileIdentity
+    type: invariant
+  criticality: high
+
+INT-GRANT-007:
+  version: 1.0.0
+  status: active
+  statement: "The studio MUST be able to report, for any app, whether each capability grant on the install's branch still declares what its canonical template renders for that app and host. The comparison MUST be semantic (parsed documents, not bytes, so comments and line endings are not differences), MUST cover only what the template owns (team-owned realm keys, the users allowlist among them, are excluded by construction), and MUST ask whether each rendered document is PRESENT rather than whether a concern file equals the render. The report MUST be a read - it never rewrites a grant file - and a grant the install does not hold MUST report absent rather than drifted."
+  rationale: "A grant is a pure function of the app name and its host, so every grant on every branch is exactly reproducible from the template that wrote it - but nothing ever re-derived one, and nothing compared them, so a template change reached existing grants only as a hand sweep across every install. Two defects lived in that gap: the fleet carried a webOrigins the template had stopped rendering, meaningless on a confidential client and actively misleading (foundry-platform#123), and a redirect URI hand-added to one app's client was load-bearing on the install somebody edited and silently absent on the other, where the surface could not be signed into at all (foundry-platform#140). Neither was visible to any gate, because a frozen grant is not wrong against any check that exists. This is a read and not a re-render on purpose: reconcile replaces the files it owns wholesale, which is how reconciling solveos deleted a live generator's Role and RoleBinding out from under it (foundry-platform#100), and grant documents share concern files with other grants, so a wholesale write aimed at them repeats that failure with more to lose. Knowing a grant has drifted is the half that closes the gap and cannot destroy anything. The comparison is per-document rather than per-file because a concern file legally carries documents this grant did not write, so the question is presence, not equality. It excludes team-owned realm keys for a sharper reason than tidiness: a realm's users list IS its access allowlist, people are admitted by hand by design, and a render keyed on the app name cannot know them - so comparing them would report every realm with a real user as drifted and, far worse, would invite a repair that deletes the people. Normalising the fleet against the template proposed removing an admitted operator from two live realms; only a semantic guard caught it. It is semantic rather than byte-exact for the same family of reason: comments are not meaning, and a check that fires on a comment is noise on first contact, which is how a check comes to be ignored."
+  test:
+    scope: integration
+    component: IdentityGrant
+    type: invariant
+  criticality: high
+
+INT-GEN-001:
+  version: 2.0.0
+  status: active
+  statement: "An onboarding MUST write only authored artifacts: the app's foundry.yaml entry (name, display, icon, an optional mcp flag, in its role list) and its teams/<app>/ files. It MUST NOT write any manifest-derived view (dashboards, homepage bookmarks, docs index), and MUST NOT store a derived value such as an MCP URL: views and URLs render from the manifest and the install zone."
+  rationale: "The platform chart consumes the manifest as values and renders every view on sync (ADR-032), so drift between the manifest and its views is structurally impossible; a studio that wrote a derived file or a stored URL would reintroduce exactly the drift surface the chart eliminated."
+  test:
+    scope: integration
+    component: GatedChange
+    type: invariant
+  criticality: high
+
+INT-MCP-001:
+  version: 1.0.0
+  status: active
+  statement: "MCP onboarding tools MUST take the identical gate-validate-rollback-PR path as the REST API, and a rejected onboarding MUST surface the conformance report in the tool error."
+  rationale: "The MCP server is one more inbound adapter over the same use cases; trust calibration is enforced in the core, once, for every door."
+  test:
+    scope: integration
+    component: McpAdapter
+    type: invariant
+  criticality: critical
+
+INT-MCP-002:
+  version: 1.0.1
+  status: active
+  statement: "The MCP tool list MUST derive from the composition wiring: the PR surface (list_onboarding_prs, get_onboarding_pr, refresh_platform) exists only when the composition manages the clone."
+  rationale: "A tool advertising an operation its composition cannot perform is a lie to every connected agent; the tool list itself is the capability report."
+  test:
+    scope: integration
+    component: McpAdapter
+    type: invariant
+  criticality: high
+
+INT-SRP-001:
+  version: 1.1.0
+  status: active
+  statement: "The studio MUST mutate only its own datastore (the install's deploy branch of the platform repo); everything team-owned (the app repo's deploy branch, secrets) ships as runbook content the calling agent executes."
+  rationale: "The app repo's deploy branch belongs to its team and secrets stay imperative by design; the server owns its datastore and client-side effects ship as content (the client-executes idiom)."
+  test:
+    scope: integration
+    component: McpAdapter
+    type: invariant
+  criticality: high
+
+INT-AUTH-001:
+  version: 1.0.0
+  status: active
+  statement: "With auth configured, unauthenticated requests MUST be rejected with 401 on every surface (SPA, /api, /mcp)."
+  rationale: "One credential story per app: the studio can open PRs against the cluster control plane, so no surface may be weaker than the others."
+  test:
+    scope: integration
+    component: AuthGate
+    type: invariant
+  criticality: critical
+
+INT-AUTH-002:
+  version: 1.0.0
+  status: active
+  statement: "With auth configured, requests carrying the valid HTTP Basic credential MUST be admitted; a wrong password MUST be refused."
+  rationale: "The gate must admit the operator it exists for, and nothing else."
+  test:
+    scope: integration
+    component: AuthGate
+    type: behavior
+  criticality: high
+
+INT-AUTH-003:
+  version: 1.0.0
+  status: active
+  statement: "/api/health MUST answer without credentials."
+  rationale: "Liveness and readiness probes carry no Authorization header; a gated health endpoint reads as a dead pod."
+  test:
+    scope: integration
+    component: AuthGate
+    type: behavior
+  criticality: high
+
+INT-AUTH-004:
+  version: 1.0.0
+  status: active
+  statement: "With auth not configured and not explicitly disabled, every protected route MUST answer 503: fail closed, never silently open."
+  rationale: "A misconfigured deployment must refuse to serve rather than expose an unauthenticated control surface; this is what makes publishing the hostname safe before secrets land."
+  test:
+    scope: integration
+    component: AuthGate
+    type: invariant
+  criticality: critical
+
+INT-AUTH-005:
+  version: 1.0.0
+  status: active
+  statement: "In mcp auth scope (STUDIO_AUTH_SCOPE=mcp) the gate MUST still cover the /mcp machine door fail-closed (valid Basic admitted, 503 when unconfigured, 401 otherwise) and MUST serve the human surfaces (SPA, /api) open for an OIDC reverse proxy in front to gate; it MUST NOT leave /mcp open in this scope."
+  rationale: "An MCP client is a non-interactive agent that cannot complete a browser OIDC login, so the machine door keeps its machine credential (HTTP Basic) while humans authenticate through oauth2-proxy on the other surfaces. The app owns only the /mcp half of the split and the chart couples the two, so 'every surface rejects the unauthenticated' holds across the pair without forcing agents through an interactive flow (ADR-031)."
+  test:
+    scope: integration
+    component: Auth
+    type: invariant
+  criticality: critical
+
+INT-SPA-001:
+  version: 1.0.0
+  status: active
+  statement: "The onboarding wizard MUST drive only the gated onboarding endpoints and MUST surface a gate rejection's new failures and report verbatim."
+  rationale: "The SPA is a third door over the same gated core, not a second write path; when the gate says no, the operator sees exactly why."
+  test:
+    scope: integration
+    component: OnboardWizard
+    type: behavior
+  criticality: high
+
+INT-SETTINGS-001:
+  version: 1.0.0
+  status: active
+  statement: "Every curated platform setting MUST address the install's own values.yaml on its deploy branch, and reads MUST report the install's pinned value and the chart default as separate facts (a null value meaning the install pins nothing). A knob's declared default MUST itself satisfy the knob's unit. Tuning a knob MUST refuse a value its unit does not admit and MUST refuse a no-op change BEFORE any branch is prepared, and MUST otherwise ship as a conformance-gated pull request that leaves values.yaml byte-identical when the gate fails."
+  rationale: "The deploy branch is the whole of the studio's checkout: it carries foundry.yaml, values.yaml, root/ and teams/, and no k8s/ chart source at all. The first version of this surface pointed its one knob at k8s/templates/observability/loki.yaml, so it read null on every real install and would have written a file the branch does not have - and it passed its tests, because they created that path inside the synthetic checkout. Holding the registry to values.yaml is what makes the read true and the write possible. Value and default are kept apart because collapsing them loses the distinction between 'pinned to 30 days' and 'inherits 30 days', which diverge the moment the chart's default moves - and pinning the current default is therefore a real change, not a no-op. Validation runs before the gate because the conformance suite has no opinion on a values string: a malformed duration would pass every check, merge, and surface only as a component that will not start at the next sync. The no-op refusal is pre-branch because the alternative is an empty pull request against the install's deploy branch for a change that was never a change."
+  test:
+    scope: integration
+    component: PlatformSettings
+    type: invariant
+  criticality: high
+
+INT-SETTINGS-002:
+  version: 1.0.0
+  status: active
+  statement: "The settings pane MUST drive only the gated settings endpoint, MUST render each knob's effective value while distinguishing a pinned value from an inherited chart default, and MUST surface a gate rejection's new failures and report verbatim."
+  rationale: "The pane is a door over the same gated core as the REST and MCP surfaces, not a second write path. It must also not imply the change has taken effect: the write is a pull request the platform repo's CI merges and ArgoCD then reconciles, so the value the pane shows after a successful submit is still the branch's current one, and saying otherwise would have the operator believe a horizon moved that has not."
+  test:
+    scope: integration
+    component: SettingsPane
+    type: behavior
+  criticality: high
+
+INT-CAP-001:
+  version: 1.0.0
+  status: active
+  statement: "Every shared capability the studio detects on a team manifest (a has_* fact, e.g. has_database, has_identity) MUST be one it can also grant: an onboard_* use case with a matching POST /api/onboard/<cap> route (and, by INT-MCP-002, an MCP tool). Teaching the studio a new platform capability is complete or it fails, never detectable-but-not-grantable, never wired on one surface only."
+  rationale: "The platform gains shared capabilities over time (a database, an identity realm), and the studio is the onboarding surface for them. A capability the studio can see on a manifest but not grant, or one wired into the API but not the manifest model, is a silent half-integration. Binding detection to grant across the inbound surfaces turns the studio-must-keep-up rule from a thing to remember into a gate that fails."
+  test:
+    scope: integration
+    component: Capabilities
+    type: invariant
+  criticality: high
+
+INT-SRV-001:
+  version: 1.0.0
+  status: active
+  statement: "Studio use-case work MUST run off the server's event loop and serialize on the shared checkout: /api/health MUST keep answering while a conformance suite or an onboarding runs, and two units of checkout work MUST never interleave."
+  rationale: "The use cases are synchronous and share one managed git clone. Run on the event loop they starve /api/health for the length of a conformance suite (tens of seconds of GitHub reads, minutes of them before those reads fanned out), and three straight liveness misses at the kubelet's 1s probe timeout kill the studio mid-onboarding: a live run lost its gate rejection report exactly that way, and the calling worker could only read the healthy refusal as a dead transport. Off-loop keeps health honest under load; the checkout lock keeps the clone single-writer, which the blocking loop had previously guaranteed only by accident."
+  test:
+    scope: integration
+    component: Work
+    type: invariant
+  criticality: critical
+
+INT-REGISTRY-001:
+  version: 1.0.0
+  status: active
+  statement: "Every render and check that names where an app's images and charts live MUST take the install's registry fact, read off the deploy branch values.yaml `registry` block (ADR-044, the platform's #164): the team skeleton's Image Updater annotations, the deploy branch's image repositories and its chart's OCI home, the app-repo scaffold's chart defaults (its pull secret included: a declared registry with an empty pullSecret renders `imagePullSecrets: []`, the node-identity shape, not a missing value), and the conformance runner's canonical-binding check. A branch declaring no block falls back to GHCR under the app-repo org, the shape its pre-2.2.0 chart carries itself. A declared registry whose host the studio cannot read - the tag listing is the GHCR packages API, the seam's one implementation - MUST be refused explicitly with the host named and the deploy branch left to the runbook, never silently asked of GHCR."
+  rationale: "ghcr.io was hardcoded at every one of those sites, so on an install declaring another registry (the AWS install's ECR, platform #155) the studio would have rendered ghcr.io references into that install's deploy branches and queried a GHCR that holds nothing for it, silently - the cross-install bleed the platform's INT-FOUNDRY-054 doctrine exists to prevent, reproduced server-side. The fact makes every render follow the install it serves; the explicit refusal turns the one unimplemented read into a named degradation instead of an empty answer that reads as 'no releases yet'."
+  test:
+    scope: integration
+    component: InstallRegistry
+    type: invariant
+  criticality: high
+# --- the MCP tool table is held to the adapter, the way the events page is held
+# --- to the publisher: a hand-maintained mirror of a live source must be tested ---
+
+INT-DOCS-001:
+  version: 1.0.0
+  status: active
+  statement: "The MCP tool table in docs/src/content/docs/reference/architecture.md MUST state exactly the tools the MCP adapter (studio-backend/studio/adapters/inbound/mcp/server.py) registers: every registered tool appears by name in the table's first column, and the table names no tool the adapter does not register. The registered set derives from the adapter source; the stated set derives from the page."
+  rationale: "The tool table is the consumer's contract and the registrations are what the door serves; maintained by hand on both sides they drift silently, and the 2026-08 docs reconciliation found exactly that across the fleet, with three parts documenting none of their tools. The events page already carries this discipline against the publisher's constants; this claim extends it to the tool roster, so a tool shipped without its row, or a row surviving its tool, fails the build instead of waiting for the next audit."
+  test:
+    scope: integration
+    component: Docs
+    type: invariant
+  criticality: medium
+
+INT-ORG-001:
+  version: 1.0.1
+  status: active
+  statement: "The organisation an install's repositories live under MUST be an install fact read off its deploy branch (values.yaml githubOrgUrl, platformRepo, ciRepo), the same way the registry is (INT-REGISTRY-001), never a constant of the studio's own: every rendered Application repoURL, every GHCR package owner the Image Updater bindings and the deploy-branch bootstrap name, every repository the scaffold creates, and the shared CI caller the scaffold writes (uses: <org>/<ciRepo>/.github/workflows/build.yml) MUST follow the declared organisation. A branch that predates the fact (no githubOrgUrl) MUST fall back to the fleet default the studio was built for, which is what such a branch's rendered records already carry, so a fork of the platform into another organisation changes nothing but the branch's values."
+  rationale: "A platform forked into another organisation, with prefixed platform and CI repositories, would otherwise need the studio patched by hand in three places: the org constant behind every repoURL and GHCR owner, the scaffold's CI caller naming the original organisation's ci repository, and a delivery check refusing every app whose CI repository is not literally named ci. Each is a fleet constant standing in for an install fact the branch already declares (the platform's githubOrgUrl and platformRepo), so a new fleet would inherit another fleet's identity silently and ship repos calling the wrong CI. Reading the fact off the branch, with ciRepo declared beside platformRepo, makes standing up a fleet in a new organisation a values change and leaves the studio's source identical across fleets."
+  test:
+    scope: integration
+    component: InstallOrganisation
+    type: invariant
+  criticality: high

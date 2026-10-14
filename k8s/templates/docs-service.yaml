@@ -1,0 +1,22 @@
+{{- if .Values.docs.enabled }}
+{{/* Backend Service for the central docs portal's /apps/<app> route. Its name
+     MUST be <app>-docs to match the platform docs HTTPRoute backendRef. */}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Chart.Name }}-docs
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}-docs
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: docs
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ .Chart.Name }}-docs
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+{{- end }}

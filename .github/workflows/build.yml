@@ -1,0 +1,18 @@
+# platform-studio CI: a thin caller of the platform's reusable build workflow.
+# The build logic lives once in VFPT-VODAFONE-FOUNDRY/adf-ci; this only
+# points at it, so it cannot drift. Runs on the in-cluster ARC dind runners.
+name: build
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    uses: VFPT-VODAFONE-FOUNDRY/adf-ci/.github/workflows/build.yml@main
+    with:
+      app-name: platform-studio
+    permissions:
+      contents: write
+      packages: write
+    secrets: inherit
