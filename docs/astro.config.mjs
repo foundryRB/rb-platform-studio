@@ -18,12 +18,12 @@ export default defineConfig({
     starlight({
       title: 'Platform Studio',
       components: { SiteTitle: './src/components/SiteTitle.astro' },
-      logo: { light: './src/assets/vfpt-lockup-light.svg', dark: './src/assets/vfpt-lockup-dark.svg', alt: 'Digital Engineering, Vodafone Portugal' },
+      logo: { light: './src/assets/rb-lockup-light.svg', dark: './src/assets/rb-lockup-dark.svg', alt: 'Software Engineering, RB' },
       description: 'Onboarding and management studio for the platform repo: registry, conformance, gated onboardings as pull requests, MCP server',
       // Shared theme first, then this site's own overrides (kept minimal).
       customCss: [
         '@psa-department-of-engineering/starlight-theme/styles.css',
-        './src/styles/custom.css', './src/styles/vodafone.css'],
+        './src/styles/custom.css', './src/styles/rb.css'],
       lastUpdated: true,
       tableOfContents: {
         minHeadingLevel: 2,

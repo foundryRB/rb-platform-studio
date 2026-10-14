@@ -12,7 +12,7 @@ from urllib.request import Request, urlopen
 __all__ = ["main"]
 
 REVISION = "0097a8f4c5c9b8524487a859ab9dc20c004d0b74"
-SOURCE = "https://api.github.com/repos/VFPT-VODAFONE-FOUNDRY/adf-playbook/contents"
+SOURCE = "https://api.github.com/repos/foundryRB/rb-playbook/contents"
 OVERVIEW = "galaxies/craft/skills/apply-intent-bundle/bundles/starlight/templates/overview.md"
 BOOTSTRAP = "galaxies/craft/skills/bootstrap-starlight/bootstrap.py"
 TARGET = Path(__file__).resolve().parents[1] / "studio-backend/studio/domain/services/docs_scaffold_source.py"

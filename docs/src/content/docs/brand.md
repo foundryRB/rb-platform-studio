@@ -4,10 +4,10 @@ id: DOC-REF-BRAND-001
 type: Reference
 status: Active
 updated: "2026-09-13"
-description: The Vodafone Portugal Digital identity and the application-owned styling sources.
+description: The RB Software Engineering identity and the application-owned styling sources.
 ---
 
-Platform Studio wears the Vodafone Portugal Digital identity: the lockup (speechmark, "Digital Engineering" over "Vodafone Portugal", the flag) in the header, the brand's red as the primary and the ambient field's colour, neutral greys around it, the brand face for text and JetBrains Mono for the lockup's second line.
+Platform Studio wears the RB Software Engineering identity: the lockup (the RB tile, "Software Engineering" over "RB") in the header, the brand's green as the primary and the ambient field's colour, neutral greys around it, system fonts for text and JetBrains Mono for the lockup's second line.
 
 ## Application sources
 

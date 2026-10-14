@@ -38,7 +38,7 @@ __all__ = ["APP_REPO_ORG", "SKELETON_FILE_ORDER", "docs_service_name", "render_t
 # another organisation renders that organisation into every repoURL, GHCR
 # owner, and scaffolded CI caller, and this constant is never consulted.
 # Public: the use cases fall back to it through InstallOrganisation.org_or.
-APP_REPO_ORG = "VFPT-VODAFONE-FOUNDRY"
+APP_REPO_ORG = "foundryRB"
 _APP_REPO_ORG = APP_REPO_ORG
 
 # The order the skeleton files are written (apply-read order, deterministic).

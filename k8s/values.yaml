@@ -1,10 +1,10 @@
 images:
   app:
-    repository: ghcr.io/vfpt-vodafone-foundry/platform-studio-app
+    repository: ghcr.io/foundryrb/platform-studio-app
     tag: latest
     pullPolicy: Always
   docs:
-    repository: ghcr.io/vfpt-vodafone-foundry/platform-studio-docs
+    repository: ghcr.io/foundryrb/platform-studio-docs
     tag: latest
     pullPolicy: Always
 
@@ -95,7 +95,7 @@ content:
 config:
   STUDIO_PLATFORM_ROOT: /data/platform
   # Presence of the repo URL selects the PR-mode composition (ADR-003).
-  STUDIO_PLATFORM_REPO_URL: https://github.com/VFPT-VODAFONE-FOUNDRY/adf-platform.git
+  STUDIO_PLATFORM_REPO_URL: https://github.com/foundryRB/rb-platform.git
   # The install this studio serves (ADR-009 / platform ADR-032): its deploy
   # branch is the datastore, the PR base, and the lifecycle commit target.
   # NO DEFAULT ON PURPOSE: a default here lets any other install inherit it and

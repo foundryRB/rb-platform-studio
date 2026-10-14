@@ -1,0 +1,54 @@
+/* The appearance control, drawn in this app's own tokens. */
+:root {
+    --rb-edge: hsl(var(--border));
+    --rb-link: hsl(var(--primary));
+}
+.rb-appearance {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-weight: 500;
+    font-size: 12px;
+}
+.rb-appearance label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+.rb-appearance select,
+.rb-appearance button {
+    min-height: 32px;
+    border: 1px solid var(--rb-edge);
+    border-radius: 8px;
+    padding: 5px 9px;
+    background: hsl(var(--card));
+    color: hsl(var(--foreground));
+    font: inherit;
+}
+.rb-appearance button[aria-pressed='true'] {
+    color: var(--rb-link);
+}
+.rb-appearance :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
+}
+@media (pointer: coarse) {
+    .rb-appearance select,
+    .rb-appearance button {
+        min-height: 44px;
+    }
+}
+[data-rb-shell] .app-header {
+    gap: 18px;
+}
+[data-rb-shell] .app-header nav {
+    flex-wrap: wrap;
+}
+[data-rb-shell] .app-header .rb-appearance {
+    margin-left: auto;
+}
+[data-rb-shell] .rb-appearance select {
+    width: auto;
+    min-width: 82px;
+}

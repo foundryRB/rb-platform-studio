@@ -1,0 +1,54 @@
+/* RB Software Engineering over the shared theme: the brand face (src/assets/fonts), the
+   lockup as the site logo (astro.config), the red as the accent on paper. Loaded after
+   @psa-department-of-engineering/starlight-theme. */
+/* System font stacks: the identity ships no webfont of its own. */
+:root { --rb-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+:root { --sl-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+:root[data-theme='dark'] {
+  --sl-color-white: hsl(0 0% 95%);
+  --sl-color-gray-1: hsl(0 0% 85%);
+  --sl-color-gray-2: hsl(0 0% 75%);
+  --sl-color-gray-3: hsl(0 0% 49%);
+  --sl-color-gray-4: hsl(210 4% 37%);
+  --sl-color-gray-5: hsl(210 6% 25%);
+  --sl-color-gray-6: hsl(210 7% 16%);
+  --sl-color-black: hsl(210 7% 12%);
+  --sl-color-accent-low: hsl(158 60% 16%);
+  --sl-color-accent: hsl(154 70% 59%);
+  --sl-color-accent-high: hsl(154 70% 82%);
+}
+:root[data-theme='light'] {
+  --sl-color-white: hsl(0 0% 5%);
+  --sl-color-gray-1: hsl(210 7% 16%);
+  --sl-color-gray-2: hsl(200 3% 23%);
+  --sl-color-gray-3: hsl(195 3% 30%);
+  --sl-color-gray-4: hsl(0 0% 49%);
+  --sl-color-gray-5: hsl(0 0% 75%);
+  --sl-color-gray-6: hsl(0 0% 90%);
+  --sl-color-gray-7: hsl(0 0% 95%);
+  --sl-color-black: hsl(0 0% 100%);
+  --sl-color-accent-low: hsl(0 0% 93%);
+  --sl-color-accent: hsl(158 100% 24%);
+  --sl-color-accent-high: hsl(158 100% 18%);
+  --sl-color-bg: #ffffff;
+  --sl-color-bg-nav: #ffffff;
+  --sl-color-bg-sidebar: #f7f7f7;
+  --sl-color-bg-inline-code: #ececec;
+  --sl-color-hairline-light: #d9d9d9;
+  --sl-color-hairline: #d9d9d9;
+  --sl-color-hairline-shade: #bebebe;
+}
+/* IDENTITY SURFACES (dark): begin */
+:root[data-theme='dark'] {
+  --sl-color-bg: #04050a;
+  --sl-color-bg-nav: #0b0d12;
+  --sl-color-bg-sidebar: #070910;
+  --sl-color-bg-inline-code: #11141b;
+  --sl-color-hairline-light: #353b47;
+  --sl-color-hairline: #23272f;
+  --sl-color-hairline-shade: #04050a;
+}
+/* IDENTITY SURFACES (dark): end */
+.site-title img { height: 1.6rem; width: auto; }
+@font-face { font-family: "JetBrains Mono"; font-style: normal; font-weight: 600; font-display: swap;
+  src: url("../assets/fonts/JetBrainsMono-600.woff2") format("woff2"); }

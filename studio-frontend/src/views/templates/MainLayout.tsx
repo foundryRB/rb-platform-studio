@@ -2,8 +2,8 @@ import type { ReactNode } from 'react';
 
 import { Lockup } from '@/components/Lockup';
 import { useNav, type StudioView } from '@/viewmodels/nav';
-import { useAppearance } from '../../vodafone/useAppearance';
-import { Appearance } from '../../vodafone/Appearance';
+import { useAppearance } from '../../rb/useAppearance';
+import { Appearance } from '../../rb/Appearance';
 import { AmbientField } from '@/views/atoms/AmbientField';
 import { ConnectMenu } from '@/views/molecules/ConnectMenu';
 import { cn } from '@/utils';

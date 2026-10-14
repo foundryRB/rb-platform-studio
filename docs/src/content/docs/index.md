@@ -7,7 +7,7 @@ updated: "2026-10-04"
 summary: "What the studio is, how it relates to the install's deploy branch and the cluster, and where to read next."
 ---
 
-Platform Studio is the productized form of the Foundry onboarding runbooks, serving exactly one install. One deployable serves a React SPA, a REST API under `/api`, and an MCP server under `/mcp` over one hexagonal core. The install's deploy branch of `VFPT-VODAFONE-FOUNDRY/adf-platform`, the installed state that ArgoCD reconciles, is cloned onto a runtime cache volume and is the single datastore. Every onboarding is gated by the install conformance checks and ships as a pull request against the deploy branch, merged automatically by the platform repo's CI.
+Platform Studio is the productized form of the Foundry onboarding runbooks, serving exactly one install. One deployable serves a React SPA, a REST API under `/api`, and an MCP server under `/mcp` over one hexagonal core. The install's deploy branch of `foundryRB/rb-platform`, the installed state that ArgoCD reconciles, is cloned onto a runtime cache volume and is the single datastore. Every onboarding is gated by the install conformance checks and ships as a pull request against the deploy branch, merged automatically by the platform repo's CI.
 
 ```mermaid
 flowchart TB
