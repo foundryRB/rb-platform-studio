@@ -1,6 +1,6 @@
 # platform-studio CI: a thin caller of the platform's reusable build workflow.
 # The build logic lives once in foundryRB/rb-ci; this only
-# points at it, so it cannot drift. Runs on the in-cluster ARC dind runners.
+# points at it, so it cannot drift. Runs on GitHub-hosted runners.
 name: build
 
 on:
@@ -12,6 +12,7 @@ jobs:
     uses: foundryRB/rb-ci/.github/workflows/build.yml@main
     with:
       app-name: platform-studio
+      runner: ubuntu-latest
     permissions:
       contents: write
       packages: write

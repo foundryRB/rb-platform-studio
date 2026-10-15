@@ -1,9 +1,8 @@
 # platform-studio tests: backend suite (including the MCP protocol tests and
 # the real-git PR-flow tests), frontend vitest, docs Starlight meta-tests, and
 # the cross-runtime intent audit. Separate from build.yml (conformance +
-# release): tests gate the code, the build ships artifacts. Runs on the
-# in-cluster ARC runners (runs-on: arc-dind), like build.yml, so no job consumes
-# GitHub-hosted minutes; when k3s is down they queue for a runner.
+# release): tests gate the code, the build ships artifacts. Runs on
+# GitHub-hosted runners (ubuntu-latest), like build.yml.
 name: test
 
 on:
@@ -13,7 +12,7 @@ on:
 
 jobs:
   backend:
-    runs-on: arc-dind
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: studio-backend
@@ -30,7 +29,7 @@ jobs:
       - run: python -m pytest -q
 
   frontend:
-    runs-on: arc-dind
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: studio-frontend
@@ -47,7 +46,7 @@ jobs:
           npm test
 
   docs:
-    runs-on: arc-dind
+    runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: docs
@@ -64,7 +63,7 @@ jobs:
           npm run build
 
   intent-audit:
-    runs-on: arc-dind
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
