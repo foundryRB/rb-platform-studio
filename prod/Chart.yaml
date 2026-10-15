@@ -1,0 +1,9 @@
+apiVersion: v2
+name: platform-studio
+description: prod environment pin for platform-studio (ADR-025 deploy branch).
+type: application
+version: 1.0.0
+dependencies:
+  - name: platform-studio
+    version: 1.0.0
+    repository: oci://ghcr.io/foundryrb/charts

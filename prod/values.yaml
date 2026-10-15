@@ -1,0 +1,15 @@
+# Per-install values. Keys here are THIS install's own facts, pinned
+# explicitly: the app chart's defaults belong to whichever install it was
+# authored against, and an omitted key inherits them silently.
+# Add auth.oidc.enabled: true and auth.oidc.issuer here when this app is
+# granted an identity realm: the chart ships that block dormant, so the
+# sidecar turns on and learns its realm in the same edit.
+platform-studio:
+  host: platform-studio.rb-foundry.com
+  images:
+    app:
+      repository: ghcr.io/foundryrb/platform-studio-app
+      tag: 1.0.0
+    docs:
+      repository: ghcr.io/foundryrb/platform-studio-docs
+      tag: 1.0.0
