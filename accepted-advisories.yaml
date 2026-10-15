@@ -1,0 +1,13 @@
+# Advisories this repo accepts in the shared build's dependency audit: each has no
+# fix the repo can take, and does not affect it. The schema sits beside the audit
+# in the shared ci repo (accepted-advisories.schema.json).
+
+- vulnerability: GHSA-vfj7-8cjw-p6xm
+  justification: vulnerable_code_not_in_execute_path
+  impact_statement: >-
+    braces reaches studio-frontend only through tailwindcss (via @tailwindcss/typography,
+    then chokidar), which runs while `vite build` compiles the stylesheet. The built
+    frontend is static files served as they are, so braces is never loaded at serve
+    time, and the brace patterns it expands come from this repo's own Tailwind config,
+    never from a request. The advisory lists no patched release; drop this entry once
+    one exists and the lockfile takes it.
