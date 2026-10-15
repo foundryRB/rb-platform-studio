@@ -6,6 +6,11 @@
 # sidecar turns on and learns its realm in the same edit.
 platform-studio:
   host: platform-studio.rb-foundry.com
+  auth:
+    oidc:
+      enabled: false          # basic login until this app is granted a Keycloak realm
+  config:
+    STUDIO_DEPLOY_BRANCH: deploy-rb
   images:
     app:
       repository: ghcr.io/foundryrb/platform-studio-app
