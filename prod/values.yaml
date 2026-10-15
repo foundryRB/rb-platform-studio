@@ -1,14 +1,16 @@
 # Per-install values. Keys here are THIS install's own facts, pinned
 # explicitly: the app chart's defaults belong to whichever install it was
 # authored against, and an omitted key inherits them silently.
-# Add auth.oidc.enabled: true and auth.oidc.issuer here when this app is
-# granted an identity realm: the chart ships that block dormant, so the
-# sidecar turns on and learns its realm in the same edit.
+# Sign-in goes through this install's platform-studio realm (granted in
+# teams/platform-studio); the app's own Basic gate then covers /mcp alone.
 platform-studio:
   host: platform-studio.rb-foundry.com
   auth:
     oidc:
-      enabled: false          # basic login until this app is granted a Keycloak realm
+      enabled: true
+      issuer: https://keycloak.rb-foundry.com/realms/platform-studio
+      clientId: platform-studio
+      existingSecret: keycloak-platform-studio
   config:
     STUDIO_DEPLOY_BRANCH: deploy-rb
   images:
