@@ -14,4 +14,4 @@ platform-studio:
       tag: 1.0.1
     docs:
       repository: ghcr.io/foundryrb/platform-studio-docs
-      tag: 1.0.0
+      tag: 1.0.1
