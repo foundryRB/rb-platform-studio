@@ -1,8 +1,3 @@
-# Per-install values. Keys here are THIS install's own facts, pinned
-# explicitly: the app chart's defaults belong to whichever install it was
-# authored against, and an omitted key inherits them silently.
-# Sign-in goes through this install's platform-studio realm (granted in
-# teams/platform-studio); the app's own Basic gate then covers /mcp alone.
 platform-studio:
   host: platform-studio.rb-foundry.com
   auth:
@@ -16,7 +11,7 @@ platform-studio:
   images:
     app:
       repository: ghcr.io/foundryrb/platform-studio-app
-      tag: 1.0.0
+      tag: 1.0.1
     docs:
       repository: ghcr.io/foundryrb/platform-studio-docs
       tag: 1.0.0
