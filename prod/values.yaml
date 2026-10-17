@@ -11,7 +11,7 @@ platform-studio:
   images:
     app:
       repository: ghcr.io/foundryrb/platform-studio-app
-      tag: 1.0.1
+      tag: 1.0.3
     docs:
       repository: ghcr.io/foundryrb/platform-studio-docs
       tag: 1.0.1
