@@ -32,7 +32,7 @@
         --link: 158 100% 24%;
         --radius: 0.75rem;
         --brand: 158 100% 33%;
-        g<1>0 0% 4%;
+        --brand-ink: 0 0% 4%;
     }
     .dark {
         color-scheme: dark;
@@ -55,7 +55,7 @@
         --ring: 187 77% 60.2%;
         --link: 154 70% 59%;
         --brand: 158 100% 33%;
-        g<1>0 0% 4%;
+        --brand-ink: 0 0% 4%;
     }
     * {
         border-color: hsl(var(--border));
